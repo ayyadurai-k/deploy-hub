@@ -1,0 +1,18 @@
+# Core framework
+Django==6.0.5
+
+# REST API
+djangorestframework==3.17.1
+djangorestframework-simplejwt==5.5.1
+
+# Frontend CORS
+django-cors-headers==4.9.0
+
+# Configuration / secrets
+python-dotenv==1.2.2
+
+# OAuth token encryption at rest (Fernet)
+cryptography==48.0.0
+
+# OAuth callback + GitHub API client
+requests==2.34.2
