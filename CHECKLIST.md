@@ -69,17 +69,17 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `token_crypto.encrypt` / `decrypt` (Fernet)
 - [x] `oauth/admin.py` registers both profiles
 - [x] Initial migration generated
-- [ ] `/api/v1/oauth/google/start` view (state cookie, redirect to Google)
-- [ ] `/api/v1/oauth/google/callback` view (code exchange, `id_token` verify via JWKS, identity resolution, JWT issuance)
-- [ ] `/api/v1/oauth/github/start` view (state cookie, redirect to GitHub)
-- [ ] `/api/v1/oauth/github/callback` view (code exchange, `/user` fetch, identity resolution, JWT issuance, enqueue first sync)
+- [x] `/api/v1/oauth/google/start` view (state cookie, redirect to Google) — GET (login) + POST (link)
+- [x] `/api/v1/oauth/google/callback` view (code exchange, `id_token` verify via JWKS, identity resolution, JWT issuance)
+- [x] `/api/v1/oauth/github/start` view (state cookie, redirect to GitHub) — GET (login) + POST (link)
+- [x] `/api/v1/oauth/github/callback` view (code exchange, `/user` fetch, identity resolution, JWT issuance, first-link sync)
 - [x] `state` cookie helper (signed, short-lived, single-use)
 - [x] `intent=login|link` handling in state payload
-- [ ] Link-collision branch returns `409`
+- [x] Link-collision branch returns SPA redirect with `error=link_collision`
 - [x] `oauth_service.exchange_code_google(...)`
 - [x] `oauth_service.exchange_code_github(...)`
 - [x] `oauth_service.verify_google_id_token(...)`
-- [ ] Tests: encrypt/decrypt roundtrip, state CSRF defense, login path, link path, collision path
+- [x] Tests: encrypt/decrypt roundtrip, state CSRF defense, login path, link path, collision path
 
 ---
 
@@ -92,8 +92,8 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] Refresh-token blacklist app installed and migrated
 - [x] Custom `IssueJWTPair` service used by OAuth callbacks
 - [x] Refresh cookie: `httpOnly`, `Secure`, `SameSite=Strict`, path-scoped
-- [ ] SPA-redirect-with-fragment delivery of access token on callback
-- [ ] Reuse-detection revocation path tested
+- [x] SPA-redirect-with-fragment delivery of access token on callback
+- [x] Reuse-detection revocation path tested
 
 ---
 
@@ -108,10 +108,10 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `services/github_client.py` (paginated `/user/repos` fetch, token from `GitHubProfile`)
 - [x] `services/github_sync.py` (idempotent upsert, status transitions, error capture)
 - [x] `POST /api/v1/repositories/sync` manual trigger view
-- [ ] Auto-sync on first GitHub link
+- [x] Auto-sync on first GitHub link
 - [x] `409` when `GitHubProfile` missing
 - [x] Bounded page count for MVP
-- [ ] Tests: sync upsert, sync re-run idempotent, missing profile → 409, pagination
+- [x] Tests: sync upsert, sync re-run idempotent, missing profile → 409, pagination
 
 ---
 
@@ -127,7 +127,7 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `POST /api/v1/projects/<id>/deploy` placeholder returning `501` / canned payload
 - [x] List filtered to `request.user`
 - [x] Pagination: `LimitOffsetPagination`
-- [ ] Tests: create, list scope per user, repo unlink survives, deploy placeholder
+- [x] Tests: create, list scope per user, repo unlink survives, deploy placeholder
 
 ---
 
@@ -150,11 +150,11 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 ## 9. Backend — Tests & QA
 
-- [ ] `pytest` + `pytest-django` installed
-- [ ] `conftest.py` fixtures: `user`, `google_user`, `github_user`, `api_client`
+- [x] `pytest` + `pytest-django` installed
+- [x] `conftest.py` fixtures: `user`, `other_user`, `api_client`, `other_api_client`, `unauth_client`, `google_profile`, `github_profile`
 - [ ] Coverage > 80% on services and views
-- [ ] Migration round-trip test (`makemigrations --check`)
-- [ ] `ruff` / `black` clean
+- [x] Migration round-trip test (`makemigrations --check`)
+- [x] `ruff` clean
 - [ ] `mypy` (or `pyright`) clean on services
 
 ---
@@ -294,9 +294,9 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `OIDC.md`
 - [x] `OAUTH_DOCS.md`
 - [x] `CHECKLIST.md` (this file)
-- [ ] Root `README.md`
-- [ ] `backend/README.md` (local dev setup)
-- [ ] `frontend/README.md` (local dev setup)
+- [x] Root `README.md`
+- [x] `backend/README.md` (local dev setup)
+- [x] `frontend/README.md` (local dev setup)
 - [ ] API reference (OpenAPI schema via `drf-spectacular`)
 - [ ] Architecture diagram (system context, container, sequence for login)
 
