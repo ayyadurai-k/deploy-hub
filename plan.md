@@ -88,7 +88,7 @@ Working document for architecture decisions. Items locked here will flow into th
 **`Project`**
 - `user` (FK, cascade)
 - `repository` (FK, nullable, SET_NULL — project survives if repo disappears)
-- `name`, `slug`, `deployment_target` (placeholder "k8s" for MVP), `status`
+- `name`, `slug`, `status`
 - Timestamps
 - **UNIQUE**(`user`, `name`)
 
