@@ -1,7 +1,6 @@
 from django.utils.text import slugify
-from rest_framework import serializers
-
 from repositories.models import Repository
+from rest_framework import serializers
 
 from .models import Project
 
@@ -32,6 +31,15 @@ class ProjectSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         if value.github_profile.user_id != user.id:
             raise serializers.ValidationError("Repository does not belong to current user")
+        return value
+
+    def validate_name(self, value: str) -> str:
+        user = self.context["request"].user
+        qs = Project.objects.filter(user=user, name=value)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A project with this name already exists")
         return value
 
     def _allocate_slug(self, user, name: str) -> str:

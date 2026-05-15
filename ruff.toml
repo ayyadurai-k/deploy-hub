@@ -1,0 +1,35 @@
+target-version = "py312"
+line-length = 100
+
+extend-exclude = [
+    "**/migrations/**",
+    "venv/",
+    "node_modules/",
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",     # line length is enforced by formatter
+    "B008",     # function call in default arg — common Django pattern
+    "RUF012",   # mutable class attrs — DRF idiom (permission_classes = [...])
+    "B904",     # raise ... from ... — too noisy in DRF where exc detail flows through
+    "SIM108",   # ternary preference — readability is contextual
+]
+
+[lint.per-file-ignores]
+"**/tests.py" = ["E501"]
+"**/conftest.py" = ["E501"]
+"**/settings.py" = ["E501", "F405"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

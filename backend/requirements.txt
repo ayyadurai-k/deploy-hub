@@ -19,3 +19,11 @@ requests==2.34.2
 
 # OIDC: id_token verification (Google JWKS, JWT decoding)
 authlib==1.6.5
+
+# Tests
+pytest==8.4.2
+pytest-django==4.11.1
+pytest-mock==3.15.0
+
+# Lint / format
+ruff==0.14.0

@@ -1,8 +1,8 @@
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import requests
 from django.conf import settings
-
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -70,7 +70,6 @@ def iter_user_repos(access_token: str) -> Iterator[dict[str, Any]]:
         batch = response.json()
         if not batch:
             return
-        for item in batch:
-            yield item
+        yield from batch
         if len(batch) < per_page:
             return

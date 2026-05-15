@@ -13,9 +13,9 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `OAUTH_FLOW.md` written
 - [x] `OIDC.md` primer written
 - [x] `OAUTH_DOCS.md` provider setup notes
-- [ ] Root `README.md` (run instructions, env vars, ports)
-- [ ] `.gitignore` covers `.env`, `__pycache__`, `node_modules`, `dist/`
-- [ ] `.env.example` at repo root listing every required env var
+- [x] Root `README.md` (run instructions, env vars, ports)
+- [x] `.gitignore` covers `.env`, `__pycache__`, `node_modules`, `dist/`
+- [x] `.env.example` at repo root listing every required env var
 - [ ] License file (if applicable)
 - [ ] Editor config (`.editorconfig`)
 - [ ] Pre-commit hooks (`ruff`, `black`, `eslint`, `prettier`)
@@ -56,8 +56,8 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `/api/v1/auth/refresh` view (rotating refresh)
 - [x] `/api/v1/auth/logout` view (blacklist refresh, clear cookie)
 - [x] `UserSerializer` (id, email, display_name, has_google, has_github)
-- [ ] Services: `user_service.create_or_get_for_provider(...)`
-- [ ] Tests: model, manager, `/me`, refresh, logout
+- [x] Services: `user_service.resolve_google` / `resolve_github`
+- [x] Tests: model, manager, `/me`, refresh, logout
 
 ---
 

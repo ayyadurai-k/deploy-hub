@@ -14,7 +14,6 @@ from typing import Any, Literal
 from django.conf import settings
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 
-
 Intent = Literal["login", "link"]
 
 _SIGNER_SALT = "oauth.state.v1"

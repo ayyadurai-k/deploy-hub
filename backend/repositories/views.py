@@ -1,10 +1,9 @@
+from core.exceptions import GitHubNotConnected
+from oauth.models import GitHubProfile
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
-from core.exceptions import GitHubNotConnected
-from oauth.models import GitHubProfile
 
 from .models import Repository
 from .serializers import RepositorySerializer

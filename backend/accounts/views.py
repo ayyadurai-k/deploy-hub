@@ -1,3 +1,6 @@
+import contextlib
+
+from core.responses import error_response
 from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -5,8 +8,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from core.responses import error_response
 
 from .serializers import UserSerializer
 from .services.jwt_service import clear_refresh_cookie, set_refresh_cookie
@@ -46,11 +47,9 @@ class RefreshView(APIView):
 
         # SimpleJWT with ROTATE_REFRESH_TOKENS=True & BLACKLIST_AFTER_ROTATION=True:
         # blacklist the old, then mint a fresh pair.
-        try:
+        # AttributeError fallback covers the case where the blacklist app is not installed.
+        with contextlib.suppress(AttributeError):
             old.blacklist()
-        except AttributeError:
-            # Blacklist app not installed — fall back to no-op
-            pass
 
         new_refresh = RefreshToken()
         # Copy the user-bound claims onto the new token
@@ -75,10 +74,8 @@ class LogoutView(APIView):
         cookie_name = settings.REFRESH_COOKIE["NAME"]
         raw = request.COOKIES.get(cookie_name)
         if raw:
-            try:
+            with contextlib.suppress(TokenError, AttributeError, InvalidToken):
                 RefreshToken(raw).blacklist()
-            except (TokenError, AttributeError, InvalidToken):
-                pass
 
         response = Response(status=status.HTTP_204_NO_CONTENT)
         clear_refresh_cookie(response)

@@ -11,7 +11,6 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 
-
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 

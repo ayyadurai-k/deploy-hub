@@ -13,7 +13,6 @@ from authlib.jose import JsonWebKey, jwt
 from authlib.jose.errors import JoseError
 from django.conf import settings
 
-
 GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"

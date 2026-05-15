@@ -3,8 +3,8 @@ from typing import Any
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-
 from oauth.models import GitHubProfile, SyncStatus
+
 from repositories.models import Repository
 
 from .github_client import GitHubAPIError, iter_user_repos
