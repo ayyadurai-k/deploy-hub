@@ -16,9 +16,6 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] Root `README.md` (run instructions, env vars, ports)
 - [x] `.gitignore` covers `.env`, `__pycache__`, `node_modules`, `dist/`
 - [x] `.env.example` at repo root listing every required env var
-- [ ] License file (if applicable)
-- [ ] Editor config (`.editorconfig`)
-- [ ] Pre-commit hooks (`ruff`, `black`, `eslint`, `prettier`)
 
 ---
 
@@ -31,10 +28,8 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `projects` app created
 - [x] `core` app/package created (pagination, permissions, exceptions, responses)
 - [x] `requirements.txt` pinned
-- [ ] `settings.py` split into `base` / `dev` / `prod`
 - [x] `INSTALLED_APPS` includes all four apps + `core`
 - [x] `AUTH_USER_MODEL = "accounts.User"` set
-- [ ] `DATABASES` reads from env (Postgres in dev/prod, SQLite optional for tests)
 - [x] `SECRET_KEY` from env
 - [x] `FERNET_KEY` from env, validated at startup
 - [x] `DEBUG` from env
@@ -134,17 +129,13 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 ## 8. Backend — `core` / Cross-Cutting
 
 - [x] `core/pagination.py` — project-wide `LimitOffsetPagination` defaults
-- [ ] `core/permissions.py` — `IsAuthenticated` default
 - [x] `core/exceptions.py` — custom handler with consistent error envelope
 - [x] `core/responses.py` — helpers for `{ error: { code, message, detail } }`
 - [x] DRF `DEFAULT_AUTHENTICATION_CLASSES` = SimpleJWT
 - [x] DRF `DEFAULT_PERMISSION_CLASSES` = `IsAuthenticated`
 - [x] DRF `EXCEPTION_HANDLER` wired to `core.exceptions`
-- [ ] Structured logging (`structlog`) configured to JSON in prod
 - [x] Request ID middleware
-- [ ] Rate-limit throttle classes (per-user, per-IP)
 - [x] CORS middleware ordered correctly
-- [ ] CSRF disabled on `/api/` (JWT-only); enabled on admin
 
 ---
 
@@ -152,10 +143,8 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 - [x] `pytest` + `pytest-django` installed
 - [x] `conftest.py` fixtures: `user`, `other_user`, `api_client`, `other_api_client`, `unauth_client`, `google_profile`, `github_profile`
-- [ ] Coverage > 80% on services and views
 - [x] Migration round-trip test (`makemigrations --check`)
 - [x] `ruff` clean
-- [ ] `mypy` (or `pyright`) clean on services
 
 ---
 
@@ -167,12 +156,9 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [ ] `axios` (or `fetch` wrapper) installed
 - [ ] `@tanstack/react-query` installed
 - [ ] `react-router-dom` installed
-- [ ] `zod` for response parsing
-- [ ] UI primitives (Tailwind / shadcn / Radix — pick one)
-- [ ] `.env.example` for `VITE_API_BASE_URL`
-- [ ] App shell layout (header, content, toast container)
-- [ ] Global error boundary
-- [ ] Theming / dark mode toggle (optional)
+- [ ] UI primitives (Tailwind is the simplest pick)
+- [ ] `.env` with `VITE_API_BASE_URL`
+- [ ] App shell layout (header + content)
 
 ---
 
@@ -201,7 +187,6 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [ ] "Sync" button triggers mutation, invalidates `['repositories']`
 - [ ] Sync status indicator (`pending` / `in_progress` / `success` / `failure`)
 - [ ] Error toast on sync failure
-- [ ] Loading skeleton
 
 ---
 
@@ -211,24 +196,8 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [ ] `useProjects()` list hook
 - [ ] `<CreateProjectModal />` (name + repo picker)
 - [ ] Repo picker autocomplete from `useRepositories()`
-- [ ] Create / update / delete mutations with cache invalidation
-- [ ] `<ProjectDetail />` route
+- [ ] Create / delete mutations with cache invalidation
 - [ ] "Deploy to K8S" button shows toast "coming soon"
-- [ ] Unlinked-repo state ("repo no longer available") rendered cleanly
-
----
-
-## 14. Frontend — Tests & QA
-
-- [ ] `vitest` configured
-- [ ] React Testing Library installed
-- [ ] Tests: `<LoginPage />`, `<AuthComplete />` fragment parsing
-- [ ] Tests: 401 → refresh interceptor
-- [ ] Tests: repository list pagination
-- [ ] Tests: project create / delete
-- [ ] `eslint` clean
-- [ ] `tsc --noEmit` clean
-- [ ] Playwright / Cypress smoke test for full login → dashboard flow
 
 ---
 
@@ -246,44 +215,18 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 ---
 
-## 16. Infrastructure & Deployment
+## 16. AWS Deployment (single EC2, simple)
 
-- [ ] `docker-compose.yml` (backend, db, frontend)
-- [ ] Backend `Dockerfile`
-- [ ] Frontend `Dockerfile`
-- [ ] Postgres container with persistent volume
-- [ ] `Makefile` / `justfile` with `make dev` / `make test` / `make migrate`
-- [ ] Production deploy target chosen (Fly.io / Railway / ECS / k8s)
-- [ ] Production Postgres provisioned
-- [ ] `FERNET_KEY` stored in production secrets manager
-- [ ] OAuth secrets stored in production secrets manager
-- [ ] HTTPS / TLS terminated at reverse proxy
-- [ ] Cookie `Secure` flag verified in prod
-
----
-
-## 17. CI / CD
-
-- [ ] GitHub Actions workflow created
-- [ ] Job: backend lint (`ruff`, `black --check`)
-- [ ] Job: backend type-check (`mypy` / `pyright`)
-- [ ] Job: backend tests (`pytest` against Postgres service)
-- [ ] Job: `manage.py makemigrations --check`
-- [ ] Job: frontend lint (`eslint`)
-- [ ] Job: frontend type-check (`tsc --noEmit`)
-- [ ] Job: frontend tests (`vitest`)
-- [ ] Job: docker build (both images)
-- [ ] Branch protection on `main` requires all checks green
-
----
-
-## 18. Observability & Ops
-
-- [ ] Sentry DSN wired (backend + frontend)
-- [ ] Structured request logs to stdout
-- [ ] `/healthz` and `/readyz` wired in deploy probes
-- [ ] DB backup strategy documented
-- [ ] Key-rotation runbook for `FERNET_KEY` (`MultiFernet` swap)
+- [x] `Makefile` with `make dev` / `make test` / `make migrate`
+- [ ] EC2 instance launched + security group opened on the demo port
+- [ ] Python 3.12 + Node 20 installed on host
+- [ ] Repo cloned, `make install` + `make migrate` + `make superuser` run
+- [ ] `backend/.env` populated on host (`SECRET_KEY`, fresh `FERNET_KEY`, OAuth creds, `DJANGO_ALLOWED_HOSTS=<ec2-host>`)
+- [ ] `frontend/.env` set with `VITE_API_BASE_URL=http://<ec2-host>/api/v1`
+- [ ] Backend served via `gunicorn config.wsgi:application`
+- [ ] Frontend `npm run build` output served (nginx or Django staticfiles)
+- [ ] Provider redirect URIs updated to the EC2 hostname
+- [ ] End-to-end Google + GitHub login verified on the deployed URL
 
 ---
 
@@ -297,17 +240,3 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] Root `README.md`
 - [x] `backend/README.md` (local dev setup)
 - [x] `frontend/README.md` (local dev setup)
-- [ ] API reference (OpenAPI schema via `drf-spectacular`)
-- [ ] Architecture diagram (system context, container, sequence for login)
-
----
-
-## 20. Open Decisions (from `plan.md` §Open items)
-
-- [ ] API versioning mechanism — confirm path-based `/api/v1/`
-- [ ] Error response standard — DRF default vs. RFC 7807
-- [ ] Logging stack — `structlog` + Sentry?
-- [ ] Production deployment target chosen
-- [ ] CI gates list finalized
-- [ ] Rate-limit policy finalized
-- [ ] CSRF posture confirmed (off for `/api/`, on for admin)
