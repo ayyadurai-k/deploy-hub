@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # Local apps
+    "core",
     "accounts",
     "oauth",
     "repositories",
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "core.middleware.RequestIDMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -141,7 +143,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.StandardLimitOffsetPagination",
+    "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
     "PAGE_SIZE": 20,
 }
 
@@ -180,4 +183,38 @@ GITHUB_OAUTH = {
     "REDIRECT_URI": os.environ.get("GITHUB_OAUTH_REDIRECT_URI", ""),
     # section 8: full repo scope (private + public) + read:user
     "SCOPES": ["read:user", "repo"],
+}
+
+
+# SPA target for post-callback redirect (OAUTH_FLOW.md §6 — fragment delivery)
+SPA_AUTH_COMPLETE_URL = os.environ.get(
+    "SPA_AUTH_COMPLETE_URL",
+    "http://localhost:5173/auth/complete",
+)
+
+
+# Refresh cookie config (OAUTH_FLOW.md §10) — overridable for prod
+REFRESH_COOKIE = {
+    "NAME": "refresh_token",
+    "PATH": "/api/v1/auth/",
+    "SECURE": os.environ.get("REFRESH_COOKIE_SECURE", "False").lower() == "true",
+    "SAMESITE": os.environ.get("REFRESH_COOKIE_SAMESITE", "Strict"),
+    "DOMAIN": os.environ.get("REFRESH_COOKIE_DOMAIN") or None,
+}
+
+
+# Bounded first-page sync (plan.md §7) — keeps in-request sync predictable
+GITHUB_SYNC = {
+    "MAX_PAGES": int(os.environ.get("GITHUB_SYNC_MAX_PAGES", "5")),
+    "PER_PAGE": int(os.environ.get("GITHUB_SYNC_PER_PAGE", "100")),
+}
+
+
+# OAuth state-cookie config (signed, short-lived, per-request)
+OAUTH_STATE_COOKIE = {
+    "NAME": "oauth_state",
+    "PATH": "/api/v1/oauth/",
+    "SECURE": os.environ.get("REFRESH_COOKIE_SECURE", "False").lower() == "true",
+    "SAMESITE": "Lax",  # must be Lax — provider redirect is a cross-site GET
+    "TTL_SECONDS": 600,
 }
