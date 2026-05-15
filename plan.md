@@ -1,3 +1,5 @@
+<!-- cspell:ignore Fernet dramatiq exfiltratable exfiltration blocklist djangorestframework simplejwt structlog healthz readyz Jotai -->
+
 # Plan — Deployment Platform MVP Architecture
 
 Working document for architecture decisions. Items locked here will flow into the final architecture document (per PROMPT.txt). We add items one by one as they're settled.
@@ -126,16 +128,100 @@ Two distinct "secret" concerns, deliberately separated:
 - Future: envelope encryption + key rotation without re-encrypting every row.
 - Tokens are *never* sent to the frontend. The frontend holds only its own session/JWT; GitHub API calls are made server-side using the stored token.
 
+## 6. User model — email-only identifier
+
+- Drop Django's `username` field. `email` is the unique identifier and login field (`USERNAME_FIELD = 'email'`).
+- Both OAuth providers return verified emails; a separate username adds a uniqueness namespace to manage with no MVP value.
+- **Email is the handle, not the identity.** Stable identity remains `(provider, provider_user_id)` per section 2. If a user changes their primary email on GitHub or Google, identity holds; `User.email` is updated on next login.
+- Rejected: keeping `username` as a vanity handle — can be added later without disruption if needed.
+
+## 7. Repository sync — manual + first-login auto
+
+- **First-time GitHub connect:** auto-trigger a full sync as part of the OAuth callback so the user lands on a populated dashboard, not an empty one.
+- **Subsequent visits:** sync is **manual** via a "Sync" button on the dashboard. No periodic background sync for MVP.
+- **Execution model (MVP):** synchronous in-request with bounded pagination through the GitHub API. Sync writes status transitions on `GitHubProfile` (`in_progress` → `success` / `failure`).
+- **Bounds:** documented MVP cap (e.g., first N repos by `pushed_at DESC`) to keep request times predictable. Users with thousands of repos are served by the future async path.
+- **Future work:** async queue (Celery / RQ / dramatiq), GitHub webhooks for push-driven updates, periodic background refresh.
+
+## 8. GitHub OAuth scopes — `read:user` + `repo`
+
+- Requested scopes: `read:user` (profile) and `repo` (full read/write to public *and* private repos).
+- **Tradeoff acknowledged:** `repo` is broader than strictly needed for MVP read flows. We pick it because:
+  - Private repos are a meaningful UX signal in a deployment platform — hiding them would mislead users.
+  - Future "Deploy to K8S" flows will need write-equivalent power (status checks, deploy keys, branch reads on protected branches). Paying that consent cost once is better than re-prompting later.
+- **Mitigations:** tokens encrypted at rest, never sent to the frontend, server-side use only, scope explicitly enumerated in the consent screen copy.
+- **Documented future option:** a "public-only mode" that downgrades to `public_repo` for security-conscious users.
+
+## 9. Pagination — offset-based
+
+- API style: `?limit=20&offset=40` on list endpoints (`/repositories`, `/projects`).
+- **Why offset, not cursor:** MVP-scale data (≤ a few hundred repos per user) doesn't hit offset's deep-pagination cost. Cursor pagination adds client-side opacity and API complexity without payoff at this scale.
+- **Stable ordering is mandatory.** All paginated lists specify a deterministic `ORDER BY` (e.g., `pushed_at DESC, id ASC`) so offset is meaningful across requests.
+- **Response shape:** `{ count, next, previous, results }` — DRF's `LimitOffsetPagination` default.
+- **Future:** switch to cursor pagination when list sizes routinely exceed ~10k or write traffic causes noticeable offset drift.
+
+## 10. Auth boundary — JWT
+
+- Frontend ↔ backend boundary uses **JWT**, not Django sessions.
+- **Token strategy:**
+  - **Access token:** short-lived (~15 min), held **in memory** on the frontend (never `localStorage`), sent via `Authorization: Bearer …`.
+  - **Refresh token:** long-lived (e.g., 14 days), stored in an **httpOnly + Secure + SameSite=Strict** cookie. Inaccessible to JS; not exfiltratable via XSS.
+  - `/auth/refresh` rotates the access token using the refresh cookie. **Refresh-token rotation** on each use (one-time-use refresh tokens; reuse detection triggers session revocation).
+  - `/auth/logout` invalidates the refresh token (server-side blocklist with TTL) and clears the cookie.
+- **Tradeoffs acknowledged:**
+  - **Pro:** stateless backend, horizontal scale without sticky sessions or session-store coupling.
+  - **Pro:** clean API surface for future non-browser clients (CLI, mobile).
+  - **Con:** revocation needs short access TTL + refresh rotation (what we do) or a blocklist (we keep a small one for refresh tokens only).
+  - **Con:** XSS on the frontend remains serious — in-memory access tokens mitigate exfiltration but not in-page abuse.
+- **Library choice:** `djangorestframework-simplejwt` for issuance/refresh/rotation. Custom glue for the OAuth-callback → JWT-issue handoff.
+
+## 11. Frontend state — React Query + minimal local state
+
+- **Server state** (user, repos, projects, sync status): **React Query (TanStack Query)**. Centralized cache, automatic refetch on focus/reconnect, mutation-driven invalidation (e.g., post-sync invalidates `['repositories']`).
+- **Client/UI state** (modals, form drafts, theme): React `useState` / `useReducer`, scoped locally.
+- **No global state library** (Redux / Zustand / Jotai) for MVP.
+- **Rationale:** server state and client state have fundamentally different semantics (cache, freshness, refetch, coalescing). React Query is purpose-built; using a generic store for server state means re-implementing it badly.
+- **Future:** introduce Zustand for cross-route *client* state if multi-step flows (deployment configuration wizards, drafts) appear.
+
+## 12. Backend app boundaries — `accounts`, `oauth`, `repositories`, `projects` (+ `core`)
+
+Four Django apps + a `core/` package for shared utilities.
+
+| App | Owns | Notable contents |
+|---|---|---|
+| `accounts` | `User` model, profile endpoints, JWT issuance/refresh views | `models.User`, `views.MeView`, `views.TokenRefreshView`, `services.user_service` |
+| `oauth` | `AbstractOAuthProfile`, `GoogleProfile`, `GitHubProfile`, OAuth callbacks, token encryption | `models.AbstractOAuthProfile`, `models.GoogleProfile`, `models.GitHubProfile`, `views.GoogleCallbackView`, `views.GitHubCallbackView`, `services.token_crypto` |
+| `repositories` | `Repository` model, GitHub sync service, list/detail endpoints | `models.Repository`, `services.github_sync`, `services.github_client`, `views.RepositoryViewSet` |
+| `projects` | `Project` model, deployment placeholder, list/CRUD endpoints | `models.Project`, `views.ProjectViewSet`, `views.DeployPlaceholderView` |
+| `core` | Shared mixins, base serializers, standard error responses, pagination defaults | `pagination.py`, `permissions.py`, `responses.py`, `exceptions.py` |
+
+- Each app exposes URLs via its own `urls.py`, mounted in the project root under a versioned prefix (`/api/v1/...`).
+- **Cross-app calls flow through service modules**, not direct model imports across app boundaries. Keeps coupling explicit and refactor-safe.
+
+## 13. Sync metadata — fields on `GitHubProfile`
+
+Re-stated from section 3 for clarity and to lock the future-work seam:
+
+- Fields on `GitHubProfile`: `last_synced_at` (timestamp, nullable), `last_sync_status` (enum: `pending`, `in_progress`, `success`, `failure`), `last_sync_error` (text, nullable).
+- **Why not a separate table for MVP:** dashboard only needs "latest sync state." A historical timeline isn't a current requirement and adds write volume + query complexity.
+- **Future work:** introduce a `SyncLog` table (one append-only row per sync attempt) when debugging timelines, sync-rate analysis, or audit history becomes a real need.
+
+## 14. Deploy placeholder — toast only
+
+- Clicking **"Deploy to K8S"** triggers a frontend **toast notification** ("Deployment is not yet supported — coming soon"). No backend call.
+- No "deploy intent" persistence for MVP — adds DB writes and migration cost for zero current value. Telemetry on click can be added later without schema changes.
+- **Future work:** when real deployments land, the button becomes a multi-step flow (target selection → manifest generation → confirmation), persisted as a `Deployment` entity owned by `Project`, with status transitions and logs.
+
 ---
 
 ## Open items / next to decide
 
-- [ ] **Email-as-identifier vs. keep `username`** on `User`. Lean: email-only.
-- [ ] **Repository sync trigger** — manual button only for MVP, or auto-sync on first login / on every login? Lean: manual + first-login auto, with periodic auto-sync as future work.
-- [ ] **GitHub OAuth scopes** — `read:user` + `repo` (private repos visible) vs. `read:user` + `public_repo` (public only). Lean: `public_repo` for MVP (least privilege).
-- [ ] **Pagination strategy** for the repositories list — cursor vs. offset.
-- [ ] **Session vs. JWT** for the frontend auth boundary (cookie-based session is simpler with Django; JWT is more API-native).
-- [ ] **Frontend state management** — React Query + minimal local state vs. Redux/Zustand.
-- [ ] **Backend app/module boundaries** — Django apps layout (`accounts`, `oauth`, `repositories`, `projects` …).
-- [ ] **Sync metadata storage** — fields on `GitHubProfile` (MVP) vs. separate `SyncLog` table (future).
-- [ ] **Deployment placeholder semantics** — what does clicking "Deploy to K8S" record/return in the MVP? (No-op toast? Persist an attempt row?)
+The previous round of opens is closed. Items to surface as we move deeper into the architecture doc:
+
+- [ ] **API versioning mechanism** — path-based (`/api/v1/`) vs. header-based. Lean: path-based.
+- [ ] **Error response standard** — DRF default exceptions vs. RFC 7807 (`application/problem+json`).
+- [ ] **Logging/observability stack** — `structlog` + JSON to stdout for MVP? Sentry for error tracking? Health-check endpoints (`/healthz`, `/readyz`)?
+- [ ] **Production deployment target** — local `docker-compose` for dev is given; what's "prod"? (Fly.io, Railway, AWS ECS, k8s.) Affects reverse-proxy and static-asset sections.
+- [ ] **CI/CD direction** — GitHub Actions assumed; what gates (lint, type-check, tests, migrations dry-run, container build)?
+- [ ] **Rate limiting** — DRF throttle classes (per-user, per-IP, per-endpoint) and any GitHub-API-side throttling we expose to clients.
+- [ ] **CSRF posture** — with JWT in Authorization header for API calls and refresh cookie marked SameSite=Strict, do we still need Django's CSRF middleware on `/api/`? (Answer is likely "no for API, yes for any cookie-authenticated routes.")
