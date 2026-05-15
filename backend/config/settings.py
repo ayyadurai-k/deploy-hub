@@ -10,22 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv(BASE_DIR / ".env")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-6jik)v6^-vk@k6e#3$5%112#kasf6+p9!f3s(g__hl0m#ges@6"
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 
 # Application definition
@@ -37,10 +37,20 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party
+    "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
+    "corsheaders",
+    # Local apps
+    "accounts",
+    "oauth",
+    "repositories",
+    "projects",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -115,3 +125,59 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Custom user model — section 6 (email-only identifier)
+AUTH_USER_MODEL = "accounts.User"
+
+
+# REST framework — section 9 (offset pagination), section 10 (JWT auth)
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 20,
+}
+
+
+# SimpleJWT — section 10 (15-min access, 14-day refresh, rotation + blacklist)
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+
+# CORS — Vite dev server origin (override via env in production)
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o.strip()
+]
+CORS_ALLOW_CREDENTIALS = True
+
+
+# Token-at-rest encryption — section 5 (Fernet)
+FERNET_KEY = os.environ["FERNET_KEY"]
+
+
+# OAuth client credentials — section 5 (client secrets live in env, never in DB or source)
+GOOGLE_OAUTH = {
+    "CLIENT_ID": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
+    "CLIENT_SECRET": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+    "REDIRECT_URI": os.environ.get("GOOGLE_OAUTH_REDIRECT_URI", ""),
+}
+
+GITHUB_OAUTH = {
+    "CLIENT_ID": os.environ.get("GITHUB_OAUTH_CLIENT_ID", ""),
+    "CLIENT_SECRET": os.environ.get("GITHUB_OAUTH_CLIENT_SECRET", ""),
+    "REDIRECT_URI": os.environ.get("GITHUB_OAUTH_REDIRECT_URI", ""),
+    # section 8: full repo scope (private + public) + read:user
+    "SCOPES": ["read:user", "repo"],
+}
