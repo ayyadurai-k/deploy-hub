@@ -5,3 +5,20 @@ addopts = "-ra --strict-markers --tb=short"
 filterwarnings = [
     "ignore::DeprecationWarning:django.*",
 ]
+
+[tool.pyright]
+include = ["."]
+exclude = [
+    "**/migrations/**",
+    "venv",
+    "**/__pycache__",
+]
+venvPath = "."
+venv = "venv"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+# django-stubs ships ORM-aware stubs; with these, User.objects.create_user,
+# profile.<fk>_id, and reverse-relation accessors all resolve correctly.
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

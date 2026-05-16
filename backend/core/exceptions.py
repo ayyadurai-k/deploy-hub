@@ -1,3 +1,5 @@
+from typing import Any
+
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.views import exception_handler as drf_exception_handler
@@ -50,8 +52,8 @@ def custom_exception_handler(exc, context):
         payload_detail = None
 
     code = _classify(exc, response)
-    body = {"error": {"code": code, "message": message}}
+    error: dict[str, Any] = {"code": code, "message": message}
     if payload_detail is not None:
-        body["error"]["detail"] = payload_detail
-    response.data = body
+        error["detail"] = payload_detail
+    response.data = {"error": error}
     return response

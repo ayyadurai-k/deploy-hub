@@ -150,6 +150,9 @@ class GitHubCallbackView(_CallbackViewBase):
 
             from repositories.services.github_sync import sync_repositories
 
+            from oauth.models import GitHubProfile
+
             with contextlib.suppress(Exception):
-                sync_repositories(result.user.github_profile)
+                profile = GitHubProfile.objects.get(user=result.user)
+                sync_repositories(profile)
         return result

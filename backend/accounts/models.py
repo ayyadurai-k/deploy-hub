@@ -1,8 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
+if TYPE_CHECKING:
+    # Generic typing: UserManager produces User instances.
+    _BaseUserManager = BaseUserManager["User"]
+else:
+    _BaseUserManager = BaseUserManager
 
-class UserManager(BaseUserManager):
+
+class UserManager(_BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
@@ -39,7 +49,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
-    objects = UserManager()
+    objects: UserManager = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

@@ -1,15 +1,12 @@
 import pytest
 from core.exceptions import OAuthError
-from django.contrib.auth import get_user_model
 from oauth.models import GitHubProfile, GoogleProfile
 from oauth.services.github import GitHubIdentity, GitHubTokens
 from oauth.services.google import GoogleIdentity, GoogleTokens
 
+from accounts.models import User
 from accounts.services import user_service
 from accounts.services.jwt_service import issue_jwt_pair
-
-User = get_user_model()
-
 
 # -------- User model + manager --------
 
@@ -126,7 +123,7 @@ def test_resolve_google_returning_user_is_idempotent():
     tokens = GoogleTokens(access_token="a", id_token="i")
     first = user_service.resolve_google(identity, tokens)
     second = user_service.resolve_google(identity, tokens)
-    assert second.user.id == first.user.id
+    assert second.user.pk == first.user.pk
     assert not second.user_created and not second.profile_created
 
 
