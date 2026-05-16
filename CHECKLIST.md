@@ -153,51 +153,41 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] Vite + React + TypeScript scaffold
 - [x] `package.json` with base deps
 - [x] `tsconfig.json` configured
-- [ ] `axios` (or `fetch` wrapper) installed
-- [ ] `@tanstack/react-query` installed
-- [ ] `react-router-dom` installed
-- [ ] UI primitives (Tailwind is the simplest pick)
-- [ ] `.env` with `VITE_API_BASE_URL`
-- [ ] App shell layout (header + content)
+- [x] `axios` installed
+- [x] `@tanstack/react-query` installed
+- [x] `react-router-dom` installed
+- [x] Tailwind v4 (via `@tailwindcss/vite`)
+- [x] `.env` with `VITE_API_BASE_URL`
+- [x] App shell layout (header + content)
 
 ---
 
 ## 11. Frontend — Auth Flow
 
-- [ ] `<LoginPage />` with "Sign in with Google" + "Sign in with GitHub" buttons
-- [ ] Buttons set `window.location = <backend>/api/v1/oauth/<provider>/start`
-- [ ] `<AuthComplete />` route reads access token from URL fragment, stores in memory, clears fragment, redirects to `/dashboard`
-- [ ] In-memory access-token store (module-scoped, NOT `localStorage`)
-- [ ] `apiClient` injects `Authorization: Bearer …`
-- [ ] 401 interceptor calls `/auth/refresh`, retries pending request
-- [ ] Refresh-in-flight queueing (single refresh, fan-out of waiters)
-- [ ] `<AuthGuard />` redirects to `/login` if no access token
-- [ ] `useMe()` React Query hook (`['me']`)
-- [ ] Logout button calls `/auth/logout`, clears in-memory token, redirects
+- [x] `<LoginPage />` with "Sign in with Google" + "Sign in with GitHub" buttons
+- [x] Buttons set `window.location = <backend>/api/v1/oauth/<provider>/start`
+- [x] `<AuthComplete />` route reads access token from URL fragment, stores in memory, clears fragment, redirects to `/`
+- [x] In-memory access-token store (module-scoped, NOT `localStorage`)
+- [x] `apiClient` injects `Authorization: Bearer …`
+- [x] 401 interceptor calls `/auth/refresh`, retries pending request
+- [x] Refresh-in-flight queueing (single refresh, fan-out of waiters)
+- [x] `<AuthGuard />` redirects to `/login` if no access token
+- [x] `useMe()` React Query hook (`['me']`)
+- [x] Logout button calls `/auth/logout`, clears in-memory token, redirects
 
 ---
 
-## 12. Frontend — Dashboard / Repositories
+## 12. Frontend — Home Page (single authenticated page)
 
-- [ ] `<Dashboard />` route
-- [ ] Empty-state "Connect GitHub" CTA when `has_github === false`
-- [ ] `useRepositories({ limit, offset })` hook (`['repositories', params]`)
-- [ ] Repository list rendering (name, private badge, default branch, last push)
-- [ ] Pagination controls (prev / next / page size)
-- [ ] "Sync" button triggers mutation, invalidates `['repositories']`
-- [ ] Sync status indicator (`pending` / `in_progress` / `success` / `failure`)
-- [ ] Error toast on sync failure
-
----
-
-## 13. Frontend — Projects
-
-- [ ] `<ProjectsPage />` route
-- [ ] `useProjects()` list hook
-- [ ] `<CreateProjectModal />` (name + repo picker)
-- [ ] Repo picker autocomplete from `useRepositories()`
-- [ ] Create / delete mutations with cache invalidation
-- [ ] "Deploy to K8S" button shows toast "coming soon"
+- [x] User details card (email, display name, linked-provider badges)
+- [x] Connect-GitHub CTA when `/repositories/` returns 409
+- [x] `useRepositories()` hook
+- [x] Repo list (name, private badge, default branch, last push, link to GitHub)
+- [x] "Sync" button triggers mutation, invalidates `['repositories']`
+- [x] Sync success/error banner
+- [x] `useProjects()` hook
+- [x] Projects table (name, repo, status, action column)
+- [x] "Deploy to K8S" button shows toast "coming soon"
 
 ---
 

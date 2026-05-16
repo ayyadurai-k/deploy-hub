@@ -18,7 +18,7 @@ def _require_github_profile(user) -> GitHubProfile:
         raise GitHubNotConnected()
 
 
-class RepositoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+class RepositoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = RepositorySerializer
     permission_classes = [IsAuthenticated]
 

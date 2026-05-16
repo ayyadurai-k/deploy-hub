@@ -23,31 +23,6 @@ def _headers(access_token: str) -> dict[str, str]:
     }
 
 
-def fetch_user(access_token: str) -> dict[str, Any]:
-    response = requests.get(
-        f"{GITHUB_API_BASE}/user",
-        headers=_headers(access_token),
-        timeout=10,
-    )
-    if response.status_code >= 400:
-        raise GitHubAPIError(response.status_code, response.text)
-    return response.json()
-
-
-def fetch_primary_email(access_token: str) -> str | None:
-    response = requests.get(
-        f"{GITHUB_API_BASE}/user/emails",
-        headers=_headers(access_token),
-        timeout=10,
-    )
-    if response.status_code >= 400:
-        return None
-    for entry in response.json():
-        if entry.get("primary") and entry.get("verified"):
-            return entry.get("email")
-    return None
-
-
 def iter_user_repos(access_token: str) -> Iterator[dict[str, Any]]:
     """Paginate /user/repos, bounded by settings.GITHUB_SYNC."""
     per_page = settings.GITHUB_SYNC["PER_PAGE"]

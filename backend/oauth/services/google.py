@@ -25,10 +25,7 @@ GOOGLE_SCOPES = ["openid", "email", "profile"]
 @dataclass(frozen=True)
 class GoogleTokens:
     access_token: str
-    refresh_token: str | None
     id_token: str
-    expires_in: int
-    scope: str
 
 
 @dataclass(frozen=True)
@@ -52,8 +49,6 @@ def build_authorize_url(state: str) -> str:
         "response_type": "code",
         "scope": " ".join(GOOGLE_SCOPES),
         "state": state,
-        "access_type": "offline",  # request a refresh_token
-        "prompt": "consent",       # ensure refresh_token comes back on re-consent
         "include_granted_scopes": "true",
     }
     return f"{GOOGLE_AUTHORIZE_URL}?{urlencode(params)}"
@@ -77,10 +72,7 @@ def exchange_code(code: str) -> GoogleTokens:
     body = response.json()
     return GoogleTokens(
         access_token=body["access_token"],
-        refresh_token=body.get("refresh_token"),
         id_token=body["id_token"],
-        expires_in=int(body.get("expires_in", 3600)),
-        scope=body.get("scope", ""),
     )
 
 

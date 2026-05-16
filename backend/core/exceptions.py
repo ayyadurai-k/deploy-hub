@@ -15,12 +15,6 @@ class OAuthError(APIException):
     default_code = "oauth_error"
 
 
-class IdentityLinkCollision(APIException):
-    status_code = status.HTTP_409_CONFLICT
-    default_detail = "This provider account is already linked to another user"
-    default_code = "identity_link_collision"
-
-
 def _classify(exc, response) -> str:
     code = getattr(exc, "default_code", None) or getattr(exc, "code", None)
     if code:

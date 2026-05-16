@@ -29,8 +29,6 @@ def google_profile(user: User) -> GoogleProfile:
         picture_url="https://example.com/alice.png",
     )
     profile.set_access_token("google-access-token")
-    profile.set_refresh_token("google-refresh-token")
-    profile.scopes = ["openid", "email", "profile"]
     profile.save()
     return profile
 
@@ -45,7 +43,6 @@ def github_profile(user: User) -> GitHubProfile:
         last_sync_status=SyncStatus.PENDING,
     )
     profile.set_access_token("github-access-token")
-    profile.scopes = ["read:user", "repo"]
     profile.save()
     return profile
 

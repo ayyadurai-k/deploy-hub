@@ -6,7 +6,6 @@ from .services.token_crypto import decrypt, encrypt
 
 class AbstractOAuthProfile(models.Model):
     access_token_encrypted = models.TextField()
-    scopes = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -29,19 +28,9 @@ class GoogleProfile(AbstractOAuthProfile):
     google_sub = models.CharField(max_length=255, unique=True)
     email = models.EmailField()
     picture_url = models.URLField(blank=True)
-    refresh_token_encrypted = models.TextField(blank=True)
-    token_expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Google profile"
-
-    def set_refresh_token(self, plaintext: str | None) -> None:
-        self.refresh_token_encrypted = encrypt(plaintext) if plaintext else ""
-
-    def get_refresh_token(self) -> str | None:
-        if not self.refresh_token_encrypted:
-            return None
-        return decrypt(self.refresh_token_encrypted)
 
     def __str__(self) -> str:
         return f"GoogleProfile<{self.user.email}>"

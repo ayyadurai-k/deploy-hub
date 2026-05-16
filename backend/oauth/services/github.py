@@ -18,8 +18,6 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 @dataclass(frozen=True)
 class GitHubTokens:
     access_token: str
-    scope: str
-    token_type: str
 
 
 @dataclass(frozen=True)
@@ -65,11 +63,7 @@ def exchange_code(code: str) -> GitHubTokens:
     body = response.json()
     if "error" in body:
         raise GitHubOAuthError(f"token exchange error: {body.get('error_description') or body['error']}")
-    return GitHubTokens(
-        access_token=body["access_token"],
-        scope=body.get("scope", ""),
-        token_type=body.get("token_type", "bearer"),
-    )
+    return GitHubTokens(access_token=body["access_token"])
 
 
 def _headers(access_token: str) -> dict[str, str]:
