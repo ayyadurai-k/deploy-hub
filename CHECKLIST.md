@@ -171,7 +171,7 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 - [x] `apiClient` injects `Authorization: Bearer …`
 - [x] 401 interceptor calls `/auth/refresh`, retries pending request
 - [x] Refresh-in-flight queueing (single refresh, fan-out of waiters)
-- [x] `<AuthGuard />` redirects to `/login` if no access token
+- [x] `<AuthGuard />` redirects to `/login` if no access token *(revised 2026-05-17: now attempts `/auth/refresh` first on mount before redirecting — without this, browser refresh logged users out even with a valid refresh cookie)*
 - [x] `useMe()` React Query hook (`['me']`)
 - [x] Logout button calls `/auth/logout`, clears in-memory token, redirects
 
