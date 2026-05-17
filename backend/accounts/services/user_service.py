@@ -4,8 +4,11 @@ Encodes plan.md §2:
 - Identity is keyed on (provider, provider_user_id), never email.
 - No auto-merge by email.
 
-Login-only — the link flow (attaching a second provider to an existing session)
-has been removed; the frontend doesn't surface it.
+Two entry points per provider:
+- resolve_*   — anonymous login flow. Creates a new User if no existing profile.
+- link_*      — authenticated link flow. Attaches a new profile to an existing
+                User, refuses cross-user collisions. Returns True if a new
+                profile was created (callers may want to trigger a first-sync).
 """
 from dataclasses import dataclass
 
@@ -83,3 +86,68 @@ def resolve_github(identity: GitHubIdentity, tokens: GitHubTokens) -> Resolution
     profile.set_access_token(tokens.access_token)
     profile.save()
     return ResolutionResult(user=user, profile_created=True, user_created=True)
+
+
+# ─── Link flow (authenticated user attaches a new provider) ──────────────
+
+@transaction.atomic
+def link_google(identity: GoogleIdentity, tokens: GoogleTokens, owner_user_id: int) -> bool:
+    """Attach a GoogleProfile to the user identified by owner_user_id.
+
+    Returns True if a new profile was created, False if an existing profile
+    was refreshed. Raises OAuthError on cross-user collision.
+    """
+    existing = GoogleProfile.objects.filter(google_sub=identity.sub).first()
+    if existing is not None:
+        if existing.user_id != owner_user_id:
+            raise OAuthError("This Google account is linked to another user")
+        # Same user re-running the link flow — refresh stored token + profile.
+        existing.email = identity.email or existing.email
+        existing.picture_url = identity.picture or existing.picture_url
+        existing.set_access_token(tokens.access_token)
+        existing.save()
+        return False
+
+    if GoogleProfile.objects.filter(user_id=owner_user_id).exists():
+        raise OAuthError("This account already has a Google profile attached")
+
+    profile = GoogleProfile(
+        user_id=owner_user_id,
+        google_sub=identity.sub,
+        email=identity.email,
+        picture_url=identity.picture,
+    )
+    profile.set_access_token(tokens.access_token)
+    profile.save()
+    return True
+
+
+@transaction.atomic
+def link_github(identity: GitHubIdentity, tokens: GitHubTokens, owner_user_id: int) -> bool:
+    """Attach a GitHubProfile to the user identified by owner_user_id.
+
+    Returns True if a new profile was created, False if an existing profile
+    was refreshed. Raises OAuthError on cross-user collision.
+    """
+    existing = GitHubProfile.objects.filter(github_user_id=identity.user_id).first()
+    if existing is not None:
+        if existing.user_id != owner_user_id:
+            raise OAuthError("This GitHub account is linked to another user")
+        existing.github_login = identity.login or existing.github_login
+        existing.avatar_url = identity.avatar_url or existing.avatar_url
+        existing.set_access_token(tokens.access_token)
+        existing.save()
+        return False
+
+    if GitHubProfile.objects.filter(user_id=owner_user_id).exists():
+        raise OAuthError("This account already has a GitHub profile attached")
+
+    profile = GitHubProfile(
+        user_id=owner_user_id,
+        github_user_id=identity.user_id,
+        github_login=identity.login,
+        avatar_url=identity.avatar_url,
+    )
+    profile.set_access_token(tokens.access_token)
+    profile.save()
+    return True

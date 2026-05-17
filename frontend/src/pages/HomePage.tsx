@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import {
   oauthStartUrl,
+  useLinkProvider,
   useMe,
   useRepositories,
   useSyncRepositories,
@@ -22,6 +23,7 @@ export function HomePage() {
 
 function WelcomeHeader() {
   const { data: user, isLoading, error } = useMe();
+  const link = useLinkProvider();
 
   if (isLoading || error || !user) {
     return (
@@ -35,6 +37,11 @@ function WelcomeHeader() {
   }
 
   const firstName = (user.display_name || user.email).split(/[\s@]/)[0];
+  const busy = link.isPending;
+  const handleConnect = (provider: "google" | "github") => {
+    if (busy) return;
+    link.mutate(provider);
+  };
 
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -45,31 +52,52 @@ function WelcomeHeader() {
         <p className="mt-1 text-sm text-slate-500">{user.email}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <ProviderBadge label="Google" linked={user.has_google} />
-        <ProviderBadge label="GitHub" linked={user.has_github} />
+        <ProviderBadge
+          label="Google"
+          linked={user.has_google}
+          onConnect={() => handleConnect("google")}
+          busy={busy}
+        />
+        <ProviderBadge
+          label="GitHub"
+          linked={user.has_github}
+          onConnect={() => handleConnect("github")}
+          busy={busy}
+        />
       </div>
     </header>
   );
 }
 
-function ProviderBadge({ label, linked }: { label: string; linked: boolean }) {
+function ProviderBadge({
+  label,
+  linked,
+  onConnect,
+  busy,
+}: {
+  label: string;
+  linked: boolean;
+  onConnect?: () => void;
+  busy?: boolean;
+}) {
+  if (linked) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-emerald-200">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        {label} linked
+      </span>
+    );
+  }
   return (
-    <span
-      className={
-        linked
-          ? "inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-emerald-200"
-          : "inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-500 px-2.5 py-0.5 text-xs font-medium ring-1 ring-slate-200"
-      }
+    <button
+      type="button"
+      onClick={onConnect}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 text-violet-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-violet-200 hover:bg-violet-100 transition disabled:opacity-50"
     >
-      <span
-        className={
-          linked
-            ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
-            : "h-1.5 w-1.5 rounded-full bg-slate-300"
-        }
-      />
-      {label} {linked ? "linked" : "not linked"}
-    </span>
+      <span className="leading-none">+</span>
+      {busy ? "Connecting…" : `Connect ${label}`}
+    </button>
   );
 }
 
