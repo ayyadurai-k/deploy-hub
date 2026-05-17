@@ -64,7 +64,9 @@ OAUTH_STATE_CODE_WALKTHROUGH.md
 
 
 # --- Cloud / deploy artifacts (server creds, configs, keys) ---
-cloud/
+cloud/*
+# …but the in-container build configs aren't secrets — ship them.
+!cloud/docker/
 
 # --- Internal working notes ---
 PROMPT.txt
