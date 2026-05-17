@@ -37,41 +37,42 @@ def diag_ping(_request):
 
 
 def diag_egress(_request):
-    """Outbound reachability test. Plain Django (not DRF) so we never hit
-    BrowsableAPIRenderer or content-negotiation pitfalls. Always returns
-    JSON — top-level try/except guarantees we never 500."""
+    """Outbound reachability test. Raw TCP SYN to port 443 with a 2-second
+    timeout per target — no HTTP, no TLS, no requests library — so a wholly
+    unreachable network resolves in ~16s for 8 targets, comfortably inside
+    any worker timeout. Returns plain JSON, never 500s."""
     try:
-        # Defer the import so requests being missing/broken can't fail
-        # the URL conf load.
-        import requests  # noqa: PLC0415
-
         targets = [
-            "https://1.1.1.1",
-            "https://api.github.com/zen",
-            "https://github.com/robots.txt",
-            "https://oauth2.googleapis.com/",
-            "https://www.googleapis.com/",
-            "https://accounts.google.com/.well-known/openid-configuration",
+            ("1.1.1.1", 443),
+            ("api.github.com", 443),
+            ("github.com", 443),
+            ("oauth2.googleapis.com", 443),
+            ("www.googleapis.com", 443),
+            ("accounts.google.com", 443),
         ]
         results = []
-        for url in targets:
-            host = url.split("/")[2]
-            entry = {"url": url}
+        for host, port in targets:
+            entry = {"host": host, "port": port}
 
             try:
-                addrs = socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)
+                addrs = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
                 entry["resolved_a"] = [a[4][0] for a in addrs][:3]
             except Exception as e:
                 entry["resolved_a_error"] = f"{type(e).__name__}: {e}"
+                results.append(entry)
+                continue
 
             t0 = time.time()
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
             try:
-                r = requests.get(url, timeout=5, allow_redirects=False, verify=False)
-                entry["http"] = r.status_code
+                s.connect((entry["resolved_a"][0], port))
+                entry["tcp"] = "ok"
             except Exception as e:
-                entry["http_error"] = f"{type(e).__name__}: {str(e)[:300]}"
+                entry["tcp_error"] = f"{type(e).__name__}: {e}"
+            finally:
+                s.close()
             entry["elapsed_ms"] = int((time.time() - t0) * 1000)
-
             results.append(entry)
 
         return JsonResponse({"targets": results}, json_dumps_params={"indent": 2})
