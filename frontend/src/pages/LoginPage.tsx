@@ -1,5 +1,6 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 import { oauthStartUrl, useAccessToken } from "../lib/hooks";
+import { Brand } from "../components/Brand";
 
 export function LoginPage() {
   const token = useAccessToken();
@@ -9,44 +10,77 @@ export function LoginPage() {
   if (token) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900">repo-manage</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Sign in to browse your GitHub repos and manage deploy projects.
+    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+      {/* Soft brand-tinted backdrop */}
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_-10%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(circle_at_85%_110%,rgba(71,191,255,0.18),transparent_50%)]"
+      />
+
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-stretch justify-center px-6 py-10">
+        {/* Hero */}
+        <div className="mb-8 text-center">
+          <div className="mb-5 inline-flex justify-center">
+            <Brand size={48} textClassName="text-2xl" />
+          </div>
+          <h2 className="text-balance text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            Ship any repo to Kubernetes.
+          </h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Connect GitHub. Pick a repo. Deploy.
           </p>
         </div>
 
-        {errorMessage && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {errorMessage}
-          </div>
-        )}
+        {/* Card */}
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-7 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(15,23,42,0.06)] backdrop-blur">
+          {errorMessage && (
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
 
-        <div className="space-y-3">
-          <a
-            href={oauthStartUrl("google")}
-            className="flex items-center justify-center gap-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
-          >
-            <GoogleIcon className="h-5 w-5" />
-            Sign in with Google
-          </a>
-          <a
-            href={oauthStartUrl("github")}
-            className="flex items-center justify-center gap-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition"
-          >
-            <GitHubIcon className="h-5 w-5" />
-            Sign in with GitHub
-          </a>
+          <div className="space-y-3">
+            <a
+              href={oauthStartUrl("google")}
+              className="group flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              <GoogleIcon className="h-5 w-5" />
+              <span>Continue with Google</span>
+            </a>
+            <a
+              href={oauthStartUrl("github")}
+              className="group flex w-full items-center justify-center gap-3 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              <GitHubIcon className="h-5 w-5" />
+              <span>Continue with GitHub</span>
+            </a>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3 text-[11px] uppercase tracking-wider text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            How they're used
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <ul className="mt-3 space-y-1.5 text-xs text-slate-500">
+            <li className="flex items-start gap-2">
+              <Dot /> <span><span className="font-medium text-slate-700">Google</span> — sign in only. We never call Google APIs after auth.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Dot /> <span><span className="font-medium text-slate-700">GitHub</span> — sign in plus read access to your repositories.</span>
+            </li>
+          </ul>
         </div>
 
-        <p className="mt-8 text-xs text-slate-400 text-center">
-          Google = identity only. GitHub gives access to your repos.
+        <p className="mt-6 text-center text-[11px] text-slate-400">
+          By continuing you agree the access tokens we receive are stored encrypted at rest.
         </p>
       </div>
     </div>
   );
+}
+
+function Dot() {
+  return <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-violet-500" aria-hidden />;
 }
 
 function GoogleIcon({ className }: { className?: string }) {
