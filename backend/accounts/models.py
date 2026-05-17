@@ -43,7 +43,12 @@ class UserManager(_BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique=True)
+    # Email is a display field, not an identity key. Identity is the
+    # (provider, provider_user_id) pair on the linked profile rows
+    # (plan.md §2). Two Users with the same email are allowed — that's
+    # what we get when the same human signs in via Google AND GitHub
+    # without an explicit link flow.
+    email = models.EmailField()
     display_name = models.CharField(max_length=150, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
