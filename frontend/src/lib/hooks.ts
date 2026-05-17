@@ -47,22 +47,6 @@ export function useSyncRepositories() {
   });
 }
 
-export function useLinkProvider() {
-  // SPA → POST /oauth/<provider>/link-start with Bearer auth → backend sets
-  // the state cookie via Set-Cookie and returns the provider authorize URL.
-  // We then do a full browser navigation to that URL to complete the OAuth
-  // round-trip. The callback recognises intent=link in the state envelope
-  // and attaches the new profile to the existing user — no new JWT minted.
-  return useMutation({
-    mutationFn: async (provider: "google" | "github") => {
-      const { data } = await api.post<{ authorize_url: string }>(
-        `/oauth/${provider}/link-start`,
-      );
-      window.location.href = data.authorize_url;
-    },
-  });
-}
-
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({

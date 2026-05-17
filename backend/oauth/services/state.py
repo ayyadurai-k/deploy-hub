@@ -5,8 +5,7 @@ a random value at /start, store its signed envelope in a SameSite=Lax cookie,
 echo the raw value through the provider, then verify both match at /callback.
 
 The envelope also carries the *provider* so a leaked state can't be cross-fed
-into the other provider's callback, plus the *intent* (login vs link) and the
-*owner_user_id* for the authenticated "Connect <other provider>" flow.
+into the other provider's callback.
 """
 import json
 import secrets
@@ -16,53 +15,32 @@ from typing import Any
 from django.conf import settings
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 
-# v2: added intent + owner_user_id to support the authenticated link flow.
-# Old v1 envelopes (no intent field) are invalidated by the salt bump.
-_SIGNER_SALT = "oauth.state.v2"
+# v3: link-flow fields were added in v2 then removed; salt bump invalidates
+# any in-flight envelopes from the previous schema so they fail cleanly
+# instead of half-deserialising.
+_SIGNER_SALT = "oauth.state.v3"
 
 
 @dataclass(frozen=True)
 class StatePayload:
     nonce: str
     provider: str
-    # "login" for anonymous sign-in flow, "link" for authenticated
-    # "Connect <other provider>" flow.
-    intent: str = "login"
-    # The user_id that initiated the link (only meaningful when intent="link").
-    owner_user_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {"n": self.nonce, "p": self.provider, "i": self.intent}
-        if self.owner_user_id is not None:
-            d["o"] = self.owner_user_id
-        return d
+        return {"n": self.nonce, "p": self.provider}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "StatePayload":
-        return cls(
-            nonce=data["n"],
-            provider=data["p"],
-            intent=data.get("i", "login"),
-            owner_user_id=data.get("o"),
-        )
+        return cls(nonce=data["n"], provider=data["p"])
 
 
 def _signer() -> TimestampSigner:
     return TimestampSigner(salt=_SIGNER_SALT)
 
 
-def issue_state(
-    provider: str,
-    intent: str = "login",
-    owner_user_id: int | None = None,
-) -> tuple[str, str]:
+def issue_state(provider: str) -> tuple[str, str]:
     """Return (nonce_echoed_through_provider, signed_envelope_to_set_as_cookie)."""
-    payload = StatePayload(
-        nonce=secrets.token_urlsafe(32),
-        provider=provider,
-        intent=intent,
-        owner_user_id=owner_user_id,
-    )
+    payload = StatePayload(nonce=secrets.token_urlsafe(32), provider=provider)
     envelope = _signer().sign(json.dumps(payload.to_dict(), separators=(",", ":")))
     return payload.nonce, envelope
 

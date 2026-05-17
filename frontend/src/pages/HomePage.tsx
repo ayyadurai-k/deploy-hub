@@ -1,8 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
 import {
-  oauthStartUrl,
-  useLinkProvider,
   useMe,
   useRepositories,
   useSyncRepositories,
@@ -23,7 +21,6 @@ export function HomePage() {
 
 function WelcomeHeader() {
   const { data: user, isLoading, error } = useMe();
-  const link = useLinkProvider();
 
   if (isLoading || error || !user) {
     return (
@@ -37,11 +34,6 @@ function WelcomeHeader() {
   }
 
   const firstName = (user.display_name || user.email).split(/[\s@]/)[0];
-  const busy = link.isPending;
-  const handleConnect = (provider: "google" | "github") => {
-    if (busy) return;
-    link.mutate(provider);
-  };
 
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -52,52 +44,31 @@ function WelcomeHeader() {
         <p className="mt-1 text-sm text-slate-500">{user.email}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <ProviderBadge
-          label="Google"
-          linked={user.has_google}
-          onConnect={() => handleConnect("google")}
-          busy={busy}
-        />
-        <ProviderBadge
-          label="GitHub"
-          linked={user.has_github}
-          onConnect={() => handleConnect("github")}
-          busy={busy}
-        />
+        <ProviderBadge label="Google" linked={user.has_google} />
+        <ProviderBadge label="GitHub" linked={user.has_github} />
       </div>
     </header>
   );
 }
 
-function ProviderBadge({
-  label,
-  linked,
-  onConnect,
-  busy,
-}: {
-  label: string;
-  linked: boolean;
-  onConnect?: () => void;
-  busy?: boolean;
-}) {
-  if (linked) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-emerald-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        {label} linked
-      </span>
-    );
-  }
+function ProviderBadge({ label, linked }: { label: string; linked: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onConnect}
-      disabled={busy}
-      className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 text-violet-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-violet-200 hover:bg-violet-100 transition disabled:opacity-50"
+    <span
+      className={
+        linked
+          ? "inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium ring-1 ring-emerald-200"
+          : "inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-500 px-2.5 py-0.5 text-xs font-medium ring-1 ring-slate-200"
+      }
     >
-      <span className="leading-none">+</span>
-      {busy ? "Connecting…" : `Connect ${label}`}
-    </button>
+      <span
+        className={
+          linked
+            ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
+            : "h-1.5 w-1.5 rounded-full bg-slate-300"
+        }
+      />
+      {label} {linked ? "linked" : "not linked"}
+    </span>
   );
 }
 
@@ -158,7 +129,9 @@ function ReposSection() {
   const sync = useSyncRepositories();
   const { data: user } = useMe();
 
-  // 409 means no GitHub linked yet — show Connect CTA instead of an error.
+  // 409 means the signed-in user authenticated via Google only. Repos come
+  // from GitHub, so the section is informational — log out and sign back in
+  // via GitHub to populate it.
   if (
     repos.error &&
     axios.isAxiosError(repos.error) &&
@@ -166,16 +139,13 @@ function ReposSection() {
   ) {
     return (
       <Section title="Repositories">
-        <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50/40 p-7 text-center">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-7 text-center">
           <p className="text-sm text-slate-700">
-            Connect your GitHub account to see your repositories here.
+            Sign in with <span className="font-medium text-slate-900">GitHub</span> to see your repositories.
           </p>
-          <a
-            href={oauthStartUrl("github")}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            Connect GitHub
-          </a>
+          <p className="mt-1 text-xs text-slate-400">
+            Use <span className="font-medium">Log out</span> above, then choose Sign in with GitHub.
+          </p>
         </div>
       </Section>
     );
