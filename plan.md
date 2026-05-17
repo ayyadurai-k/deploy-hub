@@ -42,11 +42,8 @@ Working document for architecture decisions. Items locked here will flow into th
   - Account-takeover risk (controlling either email-issuing side could hijack the other).
   - Emails rotate; shared inboxes exist; corporate emails get reassigned.
 - **Logout + login with a different provider → separate `User` rows by default.** Same email is not enough to merge.
-- **Linking happens only from an authenticated session:**
-  1. User is already logged in (via Google or GitHub).
-  2. Settings → "Connect <other provider>" → OAuth round-trip.
-  3. Backend writes a new profile row attached to the existing `User`.
-- **Collision handling (MVP):** if the second provider's account is already attached to a *different* `User`, refuse the link with a clear message ("This GitHub account is already linked to another user — log in there instead"). An explicit merge flow is future work.
+- **Linking is OUT OF SCOPE for MVP (locked 2026-05-17).** The codebase deliberately implements only the login path. Both providers, signed in by the same human, produce two distinct `User` rows that share an email — by design, because identity is keyed on `(provider, provider_user_id)`, not email (see §6). The frontend does not surface a "Connect <other provider>" button. The relevant source files (`oauth/views.py`, `accounts/services/user_service.py`) carry "login-only" docstrings to make this explicit. A future iteration could re-introduce the link flow (the design is preserved in `OAUTH_FLOW.md` §8); for MVP we accept the UX trade-off in exchange for a smaller surface area and zero account-takeover risk.
+- **Collision handling (MVP):** with linking removed, the only collision possible is two anonymous sign-ins resolving to the same `(provider, provider_user_id)` — handled idempotently by `resolve_*` in `accounts/services/user_service.py`. The "linked to another user" branch from the original design is dormant code (kept in `OAUTH_FLOW.md` §8 for historical context).
 - **One account per provider per user** for MVP (no multi-GitHub-per-user). Future work.
 
 ## 3. Data model — five tables
@@ -128,11 +125,11 @@ Two distinct "secret" concerns, deliberately separated:
 - Future: envelope encryption + key rotation without re-encrypting every row.
 - Tokens are *never* sent to the frontend. The frontend holds only its own session/JWT; GitHub API calls are made server-side using the stored token.
 
-## 6. User model — email-only identifier
+## 6. User model — email-as-display, identity-as-tuple
 
-- Drop Django's `username` field. `email` is the unique identifier and login field (`USERNAME_FIELD = 'email'`).
-- Both OAuth providers return verified emails; a separate username adds a uniqueness namespace to manage with no MVP value.
-- **Email is the handle, not the identity.** Stable identity remains `(provider, provider_user_id)` per section 2. If a user changes their primary email on GitHub or Google, identity holds; `User.email` is updated on next login.
+- Drop Django's `username` field. `User.email` is the user-facing handle (admin lookup, dashboard display).
+- **Email is the handle, not the identity.** Stable identity is the `(provider, provider_user_id)` tuple on the linked profile rows. If a user changes their primary email at GitHub or Google, identity holds; `User.email` is updated on next login.
+- **`email` is intentionally NOT unique** (revised 2026-05-17). The earlier design called for `unique=True`, but that contradicted §2's "two `User` rows for two providers" policy when both providers return the same email. The constraint was removed via migration `accounts.0002_alter_user_email`. `USERNAME_FIELD = 'email'` is retained for Django's plumbing (admin, fixtures); `auth.E003` is silenced in `settings.py` because we never use `ModelBackend` password login — all authentication is OAuth → SimpleJWT.
 - Rejected: keeping `username` as a vanity handle — can be added later without disruption if needed.
 
 ## 7. Repository sync — manual + first-login auto

@@ -193,15 +193,18 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 ## 15. OAuth App Registration (External)
 
-- [ ] Google Cloud Console: OAuth client created
-- [ ] Google: authorized redirect URI `http://localhost:8000/api/v1/oauth/google/callback`
-- [ ] Google: production redirect URI added
-- [ ] Google: consent screen configured (scopes, app name, support email)
-- [ ] GitHub OAuth App created
-- [ ] GitHub: authorization callback URL `http://localhost:8000/api/v1/oauth/github/callback`
-- [ ] GitHub: production callback URL added
-- [ ] Client IDs in `.env.example`
-- [ ] Client secrets in dev `.env` (NOT committed)
+- [x] Google Cloud Console: OAuth client created
+- [x] Google: authorized redirect URI `http://localhost:8000/api/v1/oauth/google/callback`
+- [ ] Google: production redirect URI added *(deferred — §16)*
+- [x] Google: consent screen configured (scopes, app name, support email) — `openid email profile`, audience set to External, test user added
+- [x] GitHub OAuth App created (dev)
+- [x] GitHub: authorization callback URL `http://localhost:8000/api/v1/oauth/github/callback`
+- [ ] GitHub: production callback URL added *(deferred — §16; new OAuth App required per GitHub's one-callback-per-app rule)*
+- [x] Client IDs in `.env.example`
+- [x] Client secrets in dev `.env` (NOT committed — confirmed in `.gitignore`)
+- [x] **Bonus:** scopes expanded to `read:user user:email repo` to handle GitHub users with private primary email (fixes the silent "no verified email" error path)
+- [x] **Bonus:** `User.email` unique constraint removed via migration `accounts.0002_alter_user_email` to allow two `User` rows for the same human across providers (locks `plan.md` §2)
+- [x] End-to-end sign-in verified in local dev — Google ✓, GitHub ✓, repos synced ✓
 
 ---
 
