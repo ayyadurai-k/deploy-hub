@@ -26,6 +26,11 @@ psycopg[binary]==3.2.13
 # Production WSGI server
 gunicorn==23.0.0
 
+# Static + SPA file serving inside the same process as Django (used by the
+# single-container Docker deploy on Azure Container Apps; the Lightsail
+# deploy fronts Django with nginx and bypasses WhiteNoise via URL routing).
+whitenoise==6.7.0
+
 # Tests
 pytest==8.4.2
 pytest-django==4.11.1

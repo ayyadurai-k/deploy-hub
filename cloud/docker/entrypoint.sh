@@ -1,7 +1,6 @@
 #!/bin/sh
-# Diagnostic entrypoint. Never exits on failure — start nginx + gunicorn
-# regardless so the container stays up and we can probe it via HTTP and
-# (if the platform allows) shell into it. Failures are logged loudly.
+# Diagnostic entrypoint — never exits on a recoverable failure so the
+# container stays up and the orchestrator can probe it. Logs each step.
 
 set -u
 
@@ -20,9 +19,9 @@ warn() {
 : "${PORT:=8080}"
 export PORT
 
-step "entrypoint start (PORT=$PORT, $(date -u +%FT%TZ))"
+step "entrypoint start (PORT=$PORT, $(date -u +%FT%TZ), user=$(id -un):$(id -u))"
 
-step "env presence (values redacted)"
+step "env presence"
 for var in DJANGO_SECRET_KEY FERNET_KEY DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD DB_SSLMODE DJANGO_DEBUG DJANGO_ALLOWED_HOSTS; do
     eval "val=\${$var:-}"
     if [ -z "$val" ]; then
@@ -34,44 +33,41 @@ for var in DJANGO_SECRET_KEY FERNET_KEY DB_HOST DB_PORT DB_NAME DB_USER DB_PASSW
     fi
 done
 
-step "render nginx config"
-envsubst '${PORT}' < /etc/nginx/templates/app.conf.template > /etc/nginx/conf.d/app.conf
-nginx -t 2>&1 || warn "nginx config test failed"
-
 cd /app/backend
 
-step "quick DB reachability probe (5s timeout)"
-python - <<'PY' || warn "DB unreachable — migrations will fail and DB-backed views will 500, but the container will keep serving"
+step "TCP probe $DB_HOST:$DB_PORT (5s)"
+python - <<'PY' || warn "DB unreachable — migrations will fail; DB-backed views will 500. App still starts so /api/v1/healthz works."
 import os, socket, sys
 host = os.environ.get("DB_HOST", "")
 port = int(os.environ.get("DB_PORT", "5432"))
 if not host:
-    print(f"  ✗ DB_HOST is empty")
-    sys.exit(1)
-print(f"  dialing {host}:{port} …")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(5)
+    print("  ✗ DB_HOST empty"); sys.exit(1)
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(5)
 try:
-    s.connect((host, port))
-    print(f"  ✓ TCP connect ok")
+    s.connect((host, port)); print(f"  ✓ {host}:{port} reachable")
 except Exception as e:
-    print(f"  ✗ TCP connect failed: {type(e).__name__}: {e}")
-    sys.exit(1)
+    print(f"  ✗ {host}:{port}  →  {type(e).__name__}: {e}"); sys.exit(1)
 finally:
     s.close()
 PY
 
 step "import Django settings"
 python -c "import config.settings as s; print(f'  DEBUG={s.DEBUG}  ALLOWED_HOSTS={s.ALLOWED_HOSTS}')" \
-    || warn "settings import failed — see traceback above"
+    || warn "settings import failed"
 
-step "run migrations (best-effort, won't block startup)"
-timeout 30 python manage.py migrate --noinput --verbosity 1 \
-    || warn "migrate failed/timed out — likely DB_HOST wrong or unreachable from ACA"
-
-step "collect static (best-effort)"
-python manage.py collectstatic --noinput --clear --verbosity 0 >/dev/null \
+step "collectstatic (best-effort)"
+python manage.py collectstatic --noinput --verbosity 0 >/dev/null \
     || warn "collectstatic failed"
 
-step "starting supervisord (nginx :$PORT + gunicorn :8000) — exec"
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/app.conf
+step "migrate (30s timeout, best-effort)"
+timeout 30 python manage.py migrate --noinput --verbosity 1 \
+    || warn "migrate failed/timed out"
+
+step "exec gunicorn on 0.0.0.0:$PORT"
+exec gunicorn config.wsgi:application \
+    --bind "0.0.0.0:$PORT" \
+    --workers 2 \
+    --timeout 60 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info

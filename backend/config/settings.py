@@ -50,6 +50,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serve static + SPA files inside Django (single-container Docker deploy).
+    # Harmless under nginx — nginx serves static/assets before requests
+    # ever reach gunicorn, so this middleware is just a no-op fallback there.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "core.middleware.RequestIDMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -143,6 +147,12 @@ STATIC_URL = "static/"
 # directly at /static/ in production; in dev, runserver serves admin/DRF
 # assets from each app's static/ folder, so STATIC_ROOT is unused.
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise serves the Vite build at the root URL (/, /assets/*, /favicon.svg,
+# /icons.svg). Only consulted in the single-container Docker deploy; under
+# nginx on Lightsail these paths are handled before hitting Django.
+WHITENOISE_ROOT = BASE_DIR.parent / "frontend" / "dist"
+WHITENOISE_INDEX_FILE = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
