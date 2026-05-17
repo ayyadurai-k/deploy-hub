@@ -143,18 +143,11 @@ class GitHubCallbackView(_CallbackViewBase):
     def _exchange_and_resolve(self, code):
         tokens = github_svc.exchange_code(code)
         identity = github_svc.fetch_identity(tokens.access_token)
-        result = user_service.resolve_github(identity, tokens)
-        # plan.md §7 — first-time GitHub connect triggers a synchronous sync so
-        # the dashboard lands populated. Failures are captured on the profile
-        # (last_sync_status=failure) and must not block login.
-        if result.profile_created:
-            import contextlib
-
-            from repositories.services.github_sync import sync_repositories
-
-            from oauth.models import GitHubProfile
-
-            with contextlib.suppress(Exception):
-                profile = GitHubProfile.objects.get(user=result.user)
-                sync_repositories(profile)
-        return result
+        return user_service.resolve_github(identity, tokens)
+        # NOTE: first-time GitHub sign-ins do NOT auto-sync repositories in this
+        # request. Sync is purely manual via the dashboard's Sync button (per
+        # plan.md §7). The original design ran sync inside the callback so the
+        # dashboard would land populated, but with Supabase in us-east-1 and
+        # this Lightsail in ap-south-1 the ~240 DB round-trips for 120 repos
+        # blew past browser timeouts (~20–30 s), resulting in HTTP 499 from
+        # nginx on first sign-in. Keeping the callback fast is the priority.

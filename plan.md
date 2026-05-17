@@ -135,13 +135,14 @@ Two distinct "secret" concerns, deliberately separated:
 - **`email` is intentionally NOT unique** (revised 2026-05-17). The earlier design called for `unique=True`, but that contradicted §2's "two `User` rows for two providers" policy when both providers return the same email. The constraint was removed via migration `accounts.0002_alter_user_email`. `USERNAME_FIELD = 'email'` is retained for Django's plumbing (admin, fixtures); `auth.E003` is silenced in `settings.py` because we never use `ModelBackend` password login — all authentication is OAuth → SimpleJWT.
 - Rejected: keeping `username` as a vanity handle — can be added later without disruption if needed.
 
-## 7. Repository sync — manual + first-login auto
+## 7. Repository sync — manual only (revised 2026-05-17)
 
-- **First-time GitHub connect:** auto-trigger a full sync as part of the OAuth callback so the user lands on a populated dashboard, not an empty one.
-- **Subsequent visits:** sync is **manual** via a "Sync" button on the dashboard. No periodic background sync for MVP.
-- **Execution model (MVP):** synchronous in-request with bounded pagination through the GitHub API. Sync writes status transitions on `GitHubProfile` (`in_progress` → `success` / `failure`).
-- **Bounds:** documented MVP cap (e.g., first N repos by `pushed_at DESC`) to keep request times predictable. Users with thousands of repos are served by the future async path.
-- **Future work:** async queue (Celery / RQ / dramatiq), GitHub webhooks for push-driven updates, periodic background refresh.
+- **All visits:** sync is **manual** via a "Sync" button on the dashboard. No periodic background sync for MVP, and no auto-sync on first sign-in.
+- **Why the change.** The original design auto-triggered a full sync inside the GitHub OAuth callback so the dashboard would land populated. With Supabase Postgres in `aws-0-us-east-1` and our Lightsail host in `ap-south-1`, the ~240 cross-continent DB round-trips for a typical 120-repo user blew past the browser's default request timeout (~20–30 s), producing HTTP 499 (client-closed-connection) on first sign-in. Users would refresh, hit /start again, and the second callback would succeed (because `profile_created=False` on a now-existing user, skipping the sync). Cleaner to make Sync explicit and the first-sign-in callback fast.
+- **First-time UX:** new GitHub users land on the dashboard with the empty Repositories state ("No repositories yet — click Sync above"). Click Sync once to fetch.
+- **Execution model (MVP):** synchronous in-request with bounded pagination through the GitHub API. Sync writes status transitions on `GitHubProfile` (`in_progress` → `success` / `failure`). The synchronicity is *within* the explicit `/repositories/sync` call — the dashboard shows a "Syncing…" indicator until the request returns. The OAuth callback is now fast (no sync).
+- **Bounds:** `GITHUB_SYNC_MAX_PAGES=5` × `GITHUB_SYNC_PER_PAGE=100` = up to 500 most-recently-pushed repos per sync. Users with more are served by the future async path.
+- **Future work:** async queue (Celery / RQ / dramatiq), GitHub webhooks for push-driven updates, periodic background refresh, and moving Postgres to the same region as the Lightsail host so sync feels instantaneous.
 
 ## 8. GitHub OAuth scopes — `read:user` + `repo`
 
