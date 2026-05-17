@@ -10,7 +10,7 @@ Django 6 + DRF + SimpleJWT. Five apps + one core package.
 | `accounts` | `User` model, JWT issuance/refresh/logout, `/auth/me`, `user_service` (OAuth identity resolution). |
 | `oauth` | `GoogleProfile` + `GitHubProfile` models, Fernet token encryption, OAuth start/callback views, provider service modules (state, google, github). |
 | `repositories` | `Repository` model, GitHub client + sync service, list endpoint, manual sync trigger. |
-| `projects` | `Project` model, CRUD endpoint, deploy-to-K8S placeholder. |
+| ~~`projects`~~ | Removed 2026-05-17. Deploy-to-K8S is a per-repo placeholder button in the frontend now. See `plan.md` §15. |
 
 ## Setup
 
@@ -61,8 +61,6 @@ Fixtures live in [`conftest.py`](conftest.py): `user`, `other_user`, `api_client
 | GET | `/api/v1/oauth/{google,github}/callback` | Provider redirects browser here |
 | GET | `/api/v1/repositories/` | Paginated list (409 without `GitHubProfile`) |
 | POST | `/api/v1/repositories/sync` | Manual sync trigger |
-| CRUD | `/api/v1/projects/` | Full CRUD, scoped to `request.user` |
-| POST | `/api/v1/projects/<id>/deploy` | 501 placeholder |
 
 Admin lives at `/admin/`.
 

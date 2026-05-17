@@ -6,7 +6,6 @@ api_v1 = [
     path("auth/", include("accounts.urls")),
     path("oauth/", include("oauth.urls")),
     path("repositories/", include("repositories.urls")),
-    path("projects/", include("projects.urls")),
 ]
 
 

@@ -20,16 +20,6 @@ export type Repository = {
   github_pushed_at: string | null;
 };
 
-export type Project = {
-  id: number;
-  name: string;
-  slug: string;
-  status: "draft";
-  repository: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
 export type Paginated<T> = {
   count: number;
   next: string | null;

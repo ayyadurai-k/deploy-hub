@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, API_BASE } from "./api";
 import { getAccessToken, setAccessToken, subscribeToken } from "./authStore";
-import type { Paginated, Project, Repository, SyncResponse, User } from "./types";
+import type { Paginated, Repository, SyncResponse, User } from "./types";
 
 export function useAccessToken(): string | null {
   const [token, setToken] = useState<string | null>(getAccessToken());
@@ -43,18 +43,6 @@ export function useSyncRepositories() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["repositories"] });
-    },
-  });
-}
-
-export function useProjects() {
-  return useQuery({
-    queryKey: ["projects"],
-    queryFn: async (): Promise<Paginated<Project>> => {
-      const { data } = await api.get<Paginated<Project>>("/projects/", {
-        params: { limit: 100 },
-      });
-      return data;
     },
   });
 }

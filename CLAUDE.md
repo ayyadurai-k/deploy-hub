@@ -56,10 +56,9 @@ Google = **identity only** (OIDC `id_token` is verified against Google's JWKS; n
 ```
 User ── OneToOne ──► GoogleProfile / GitHubProfile  (CASCADE)
                      └── FK ──► Repository           (CASCADE from GitHubProfile)
-User ── FK ──► Project ── FK ──► Repository          (Project: CASCADE on user, SET_NULL on repo)
 ```
 
-`Project` survives repo deletion (deployment history outlasts upstream churn); `Repository` is scoped to `GitHubProfile` (not `User`) so disconnecting GitHub cleanly removes stale repo rows. See `plan.md` §3.
+`Repository` is scoped to `GitHubProfile` (not `User`) so disconnecting GitHub cleanly removes stale repo rows. The `Project` model was removed (2026-05-17) — Deploy-to-K8S now hangs off each repo directly as a placeholder. See `plan.md` §3 and §14 for the original design and the removal note.
 
 ### Service modules over fat views
 
@@ -85,13 +84,13 @@ Custom exceptions live in `core/exceptions.py` (e.g., `GitHubNotConnected` → 4
 | `accounts` | `User` model (email-only, `AUTH_USER_MODEL`), JWT issuance/refresh/logout, `/auth/me`, `user_service` (OAuth identity resolution) |
 | `oauth` | `GoogleProfile` + `GitHubProfile` + `AbstractOAuthProfile`, Fernet token crypto, OAuth start/callback views, provider service modules (`google.py`, `github.py`, `state.py`) |
 | `repositories` | `Repository` model, GitHub API client + sync service, list endpoint, manual sync trigger |
-| `projects` | `Project` model, list endpoint, deploy placeholder (frontend toast, no backend call) |
+| ~~`projects`~~ | **Removed** — the `Project` concept was dropped (2026-05-17). Deploy-to-K8S is now a per-repo placeholder button in the frontend. |
 
 URLs are mounted under `/api/v1/` (see `backend/config/urls.py`).
 
 ### Frontend data flow
 
-- **Server state** via React Query. Cache keys: `['me']`, `['repositories']`, `['projects']`. Mutations invalidate the relevant key (e.g., `useSyncRepositories` invalidates `['repositories']`).
+- **Server state** via React Query. Cache keys: `['me']`, `['repositories']`. Mutations invalidate the relevant key (e.g., `useSyncRepositories` invalidates `['repositories']`).
 - **Auth**: `frontend/src/lib/api.ts` is an axios instance with two interceptors — a request-side bearer injector and a response-side 401 handler that single-flight-refreshes the access token (queues concurrent failed requests, retries them once refresh completes). Don't bypass this client for authenticated calls.
 - **Login**: `LoginPage` sets `window.location` to `${API_BASE}/oauth/<provider>/start` (full browser nav, not XHR). After callback, the backend redirects to `/auth/complete#access=<jwt>&intent=login`; `AuthComplete` reads the fragment, stores the token in memory, and routes to `/`.
 

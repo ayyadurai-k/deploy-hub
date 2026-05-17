@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     "accounts",
     "oauth",
     "repositories",
-    "projects",
 ]
 
 MIDDLEWARE = [

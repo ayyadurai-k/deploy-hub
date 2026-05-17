@@ -110,7 +110,7 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 ---
 
-## 7. Backend — `projects` App
+## 7. ~~Backend — `projects` App~~ (removed 2026-05-17 — see `plan.md` §15)
 
 - [x] `Project` model (FK user cascade, FK repo SET_NULL, slug, status)
 - [x] `projects/admin.py` registers model

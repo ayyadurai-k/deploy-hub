@@ -21,7 +21,8 @@ Working document for architecture decisions. Items locked here will flow into th
 | 11 | Frontend state management | Locked |
 | 12 | Backend app boundaries | Locked |
 | 13 | Sync metadata storage | Locked |
-| 14 | Deploy placeholder semantics | Locked |
+| 14 | Deploy placeholder semantics | Locked (revised 2026-05-17 — see §14) |
+| 15 | `Project` model removed | Locked 2026-05-17 |
 
 ---
 
@@ -205,9 +206,17 @@ Re-stated from section 3 for clarity and to lock the future-work seam:
 
 ## 14. Deploy placeholder — toast only
 
-- Clicking **"Deploy to K8S"** triggers a frontend **toast notification** ("Deployment is not yet supported — coming soon"). No backend call.
-- No "deploy intent" persistence for MVP — adds DB writes and migration cost for zero current value. Telemetry on click can be added later without schema changes.
-- **Future work:** when real deployments land, the button becomes a multi-step flow (target selection → manifest generation → confirmation), persisted as a `Deployment` entity owned by `Project`, with status transitions and logs.
+- Clicking **"Deploy to K8S"** triggers a frontend **toast notification** ("Deployment coming soon"). No backend call.
+- The button hangs off each repo row (added 2026-05-17 when the `Project` table was removed — see §15). The original design put it on a "projects" row but that abstraction added zero value at MVP scale.
+- No "deploy intent" persistence — adds DB writes and migration cost for zero current value. Telemetry on click can be added later without schema changes.
+- **Future work:** when real deployments land, the button becomes a multi-step flow (target selection → manifest generation → confirmation), persisted as a `Deployment` row owned directly by `User` (and FK'd to `Repository`).
+
+## 15. `Project` model removed (2026-05-17)
+
+- The `projects` Django app and its `Project` model are deleted. `INSTALLED_APPS`, `config/urls.py`, the frontend `useProjects` hook, and the dashboard `ProjectsSection` are all gone.
+- **Why:** the original `Project` row had no fields beyond `name` + `status` + FKs, and "project = a repo I might deploy" turned out to be a thinly disguised duplicate of the `Repository` row. Conflating them was UX confusion; separating them was DB noise.
+- The legacy `projects_project` table is left in place on the prod SQLite DB (0 rows, never queried). It can be dropped at any time with `DROP TABLE projects_project;` — no application code references it.
+- The screening-task spec mentions a "projects table" — that bullet is fulfilled in spirit by the repos list with its Deploy buttons (which is what the spec author actually wanted: a list of deployable things). The literal "Projects table" UI element is gone.
 
 ---
 

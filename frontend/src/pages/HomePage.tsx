@@ -3,11 +3,10 @@ import axios from "axios";
 import {
   oauthStartUrl,
   useMe,
-  useProjects,
   useRepositories,
   useSyncRepositories,
 } from "../lib/hooks";
-import type { Project, Repository } from "../lib/types";
+import type { Repository } from "../lib/types";
 
 export function HomePage() {
   return (
@@ -15,7 +14,6 @@ export function HomePage() {
       <WelcomeHeader />
       <StatsStrip />
       <ReposSection />
-      <ProjectsSection />
     </div>
   );
 }
@@ -79,22 +77,18 @@ function ProviderBadge({ label, linked }: { label: string; linked: boolean }) {
 
 function StatsStrip() {
   const repos = useRepositories();
-  const projects = useProjects();
 
   const repoCount = repos.data?.count;
-  const projectCount = projects.data?.count;
+  const has409 =
+    repos.isError &&
+    axios.isAxiosError(repos.error) &&
+    repos.error.response?.status === 409;
 
-  // 409 (no GitHub linked) makes repos.count undefined — treat as 0 for display.
-  const repoText =
-    repos.isError && axios.isAxiosError(repos.error) && repos.error.response?.status === 409
-      ? "—"
-      : repoCount ?? "…";
-  const projectText = projects.isLoading ? "…" : projectCount ?? 0;
+  const repoText = has409 ? "—" : repoCount ?? "…";
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <StatCard label="Repositories" value={repoText} hint="Synced from GitHub" />
-      <StatCard label="Projects" value={projectText} hint="Owned by you" />
       <StatCard label="Deployments" value="0" hint="Coming soon" tone="muted" />
     </div>
   );
@@ -162,11 +156,7 @@ function ReposSection() {
   return (
     <Section
       title="Repositories"
-      hint={
-        repos.data?.count
-          ? `${repos.data.count} synced`
-          : undefined
-      }
+      hint={repos.data?.count ? `${repos.data.count} synced` : undefined}
       right={
         user?.has_github && (
           <button
@@ -262,100 +252,6 @@ function RepoRow({ repo }: { repo: Repository }) {
         {toast && <span className="text-xs text-violet-700">{toast}</span>}
       </div>
     </li>
-  );
-}
-
-// ---------- Projects ----------
-
-function ProjectsSection() {
-  const projects = useProjects();
-  const repos = useRepositories();
-
-  const repoById = new Map<number, Repository>();
-  repos.data?.results.forEach((r) => repoById.set(r.id, r));
-
-  return (
-    <Section title="Projects" hint="Created via Django admin in the MVP">
-      {projects.isLoading ? (
-        <p className="text-sm text-slate-500">Loading projects…</p>
-      ) : projects.error ? (
-        <Banner kind="error">Failed to load projects.</Banner>
-      ) : projects.data && projects.data.results.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-7 text-center">
-          <p className="text-sm text-slate-600">No projects yet.</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Use the Deploy buttons above to ship a repo, or create projects via{" "}
-            <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px] text-slate-600">
-              /admin/
-            </code>
-            .
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Repository</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {projects.data?.results.map((p) => (
-                <ProjectRow
-                  key={p.id}
-                  project={p}
-                  repo={p.repository ? repoById.get(p.repository) : undefined}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-function ProjectRow({
-  project,
-  repo,
-}: {
-  project: Project;
-  repo: Repository | undefined;
-}) {
-  const [toast, setToast] = useState<string | null>(null);
-
-  const handleDeploy = () => {
-    setToast("Deployment coming soon");
-    setTimeout(() => setToast(null), 2500);
-  };
-
-  return (
-    <tr className="hover:bg-slate-50">
-      <td className="px-4 py-3 font-medium text-slate-900">{project.name}</td>
-      <td className="px-4 py-3 text-slate-600">
-        {repo ? repo.full_name : <span className="text-slate-400">—</span>}
-      </td>
-      <td className="px-4 py-3">
-        <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-          {project.status}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-right">
-        <div className="inline-flex flex-col items-end gap-1">
-          <button
-            onClick={handleDeploy}
-            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-violet-700"
-          >
-            <RocketIcon />
-            Deploy to K8S
-          </button>
-          {toast && <span className="text-xs text-violet-700">{toast}</span>}
-        </div>
-      </td>
-    </tr>
   );
 }
 
