@@ -128,11 +128,23 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Destination for `manage.py collectstatic`. Nginx serves this directory
+# directly at /static/ in production; in dev, runserver serves admin/DRF
+# assets from each app's static/ folder, so STATIC_ROOT is unused.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Custom user model — section 6 (email-only identifier)
 AUTH_USER_MODEL = "accounts.User"
+
+
+# Silence auth.E003 — Django flags USERNAME_FIELD as not unique. That's
+# intentional: identity in this app is (provider, provider_user_id), not
+# email, per plan.md §2. We never log in via Django's ModelBackend
+# (it's all OAuth + SimpleJWT), so the uniqueness assumption doesn't apply.
+SILENCED_SYSTEM_CHECKS = ["auth.E003"]
 
 
 # REST framework — section 9 (offset pagination), section 10 (JWT auth)
@@ -181,8 +193,10 @@ GITHUB_OAUTH = {
     "CLIENT_ID": os.environ.get("GITHUB_OAUTH_CLIENT_ID", ""),
     "CLIENT_SECRET": os.environ.get("GITHUB_OAUTH_CLIENT_SECRET", ""),
     "REDIRECT_URI": os.environ.get("GITHUB_OAUTH_REDIRECT_URI", ""),
-    # section 8: full repo scope (private + public) + read:user
-    "SCOPES": ["read:user", "repo"],
+    # section 8: full repo scope (private + public) + read:user + user:email.
+    # user:email guarantees /user/emails access for the verified-primary-email
+    # fallback in fetch_identity, even when the user's profile email is private.
+    "SCOPES": ["read:user", "user:email", "repo"],
 }
 
 
@@ -218,3 +232,36 @@ OAUTH_STATE_COOKIE = {
     "SAMESITE": "Lax",  # must be Lax — provider redirect is a cross-site GET
     "TTL_SECONDS": 600,
 }
+
+
+# ─── Production hardening ──────────────────────────────────────────────
+# Active only when DEBUG=False. Local dev (DEBUG=True) is unaffected.
+if not DEBUG:
+    # We sit behind nginx terminating TLS. Trust the X-Forwarded-Proto
+    # header so request.is_secure() returns the original scheme — without
+    # this, Django thinks every request is HTTP and CSRF/secure-cookie
+    # logic misbehaves.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # CSRF trust list — needed when admin or any cookie-authenticated
+    # endpoint is called from a different origin (e.g., the deployed
+    # frontend domain). Comma-separated env var.
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip()
+        for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+        if o.strip()
+    ]
+
+    # Defense-in-depth: redirect plain HTTP to HTTPS at the Django layer
+    # too (nginx should already do this, but belt-and-suspenders).
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() == "true"
+
+    # HSTS — once you're confident HTTPS is rock-solid, bump this to
+    # 31536000 (1 year) and add SECURE_HSTS_INCLUDE_SUBDOMAINS = True.
+    # Start small so a misconfiguration doesn't lock browsers out.
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
+
+    # Hide the "X-Powered-By" / referrer leakage knobs that ship with
+    # Django but default to permissive values.
+    SECURE_REFERRER_POLICY = "same-origin"
+    SECURE_CONTENT_TYPE_NOSNIFF = True
