@@ -20,16 +20,17 @@ export function useMe() {
   });
 }
 
-export function useRepositories() {
+export function useRepositories(params: { offset?: number; limit?: number } = {}) {
+  const { offset = 0, limit = 10 } = params;
   return useQuery({
-    queryKey: ["repositories"],
+    queryKey: ["repositories", offset, limit],
     queryFn: async (): Promise<Paginated<Repository>> => {
       const { data } = await api.get<Paginated<Repository>>("/repositories/", {
-        params: { limit: 100 },
+        params: { limit, offset },
       });
       return data;
     },
-    // Return a structured failure for 409 so the UI can show the Connect-GitHub CTA.
+    // Return a structured failure for 409 so the UI can show the empty state.
     retry: false,
   });
 }

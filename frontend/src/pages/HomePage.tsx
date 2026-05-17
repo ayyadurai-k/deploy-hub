@@ -124,8 +124,11 @@ function StatCard({
 
 // ---------- Repositories ----------
 
+const REPOS_PAGE_SIZE = 10;
+
 function ReposSection() {
-  const repos = useRepositories();
+  const [page, setPage] = useState(0);
+  const repos = useRepositories({ offset: page * REPOS_PAGE_SIZE, limit: REPOS_PAGE_SIZE });
   const sync = useSyncRepositories();
   const { data: user } = useMe();
 
@@ -193,7 +196,58 @@ function ReposSection() {
           ))}
         </ul>
       )}
+
+      {repos.data && repos.data.count > REPOS_PAGE_SIZE && (
+        <Pagination
+          page={page}
+          pageSize={REPOS_PAGE_SIZE}
+          totalCount={repos.data.count}
+          isFetching={repos.isFetching}
+          onChange={setPage}
+        />
+      )}
     </Section>
+  );
+}
+
+function Pagination({
+  page,
+  pageSize,
+  totalCount,
+  isFetching,
+  onChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  isFetching: boolean;
+  onChange: (p: number) => void;
+}) {
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const buttonCls =
+    "rounded-md border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-slate-300";
+  return (
+    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, page - 1))}
+        disabled={page === 0 || isFetching}
+        className={buttonCls}
+      >
+        ← Previous
+      </button>
+      <span>
+        Page <span className="font-medium text-slate-700">{page + 1}</span> of {totalPages}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={page >= totalPages - 1 || isFetching}
+        className={buttonCls}
+      >
+        Next →
+      </button>
+    </div>
   );
 }
 

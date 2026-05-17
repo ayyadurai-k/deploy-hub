@@ -168,7 +168,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "core.pagination.StandardLimitOffsetPagination",
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
-    "PAGE_SIZE": 20,
+    "PAGE_SIZE": 10,
 }
 
 
