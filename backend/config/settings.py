@@ -85,8 +85,20 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "deploy_hub"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
+        # Persistent connections — Django keeps an idle conn open for this many
+        # seconds before opening a fresh one. 60s is the standard sweet spot.
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        "OPTIONS": {
+            # 'prefer' for plain localhost dev; 'require' against managed
+            # cloud Postgres (Supabase / Neon / RDS).
+            "sslmode": os.environ.get("DB_SSLMODE", "prefer"),
+        },
     }
 }
 

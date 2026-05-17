@@ -20,6 +20,9 @@ requests==2.34.2
 # OIDC: id_token verification (Google JWKS, JWT decoding)
 authlib==1.6.5
 
+# Postgres driver (Django 6 supports both psycopg2 and psycopg 3; we use 3)
+psycopg[binary]==3.2.13
+
 # Production WSGI server
 gunicorn==23.0.0
 
