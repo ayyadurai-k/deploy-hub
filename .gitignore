@@ -58,3 +58,6 @@ Thumbs.db
 .env
 *.pem
 *.key
+GITHUB_AUTH_FLOW.md
+GOOGLE_AUTH_FLOW.md
+OAUTH_STATE_CODE_WALKTHROUGH.md
