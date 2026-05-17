@@ -1,37 +1,66 @@
 #!/bin/sh
-set -eu
+# Diagnostic-heavy entrypoint. Every step is announced. On failure we
+# sleep before exiting so the orchestrator definitely captures logs.
+
+set -u
+
+die() {
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "  STARTUP FAILED: $*"
+    echo "════════════════════════════════════════════════════════════════"
+    # Give the log shipper time to flush before the container is reaped.
+    sleep 5
+    exit 1
+}
+
+step() {
+    echo ""
+    echo "▶ $*"
+}
 
 : "${PORT:=8080}"
 export PORT
 
-echo "▶ entrypoint: PORT=$PORT"
+step "entrypoint start (PORT=$PORT, PWD=$(pwd))"
 
-# Fail fast with a readable message if required env vars are missing,
-# instead of a deep Python KeyError traceback from settings.py.
+step "env presence check"
 missing=""
 for var in DJANGO_SECRET_KEY FERNET_KEY DB_HOST DB_NAME DB_USER DB_PASSWORD; do
     eval "val=\${$var:-}"
-    [ -z "$val" ] && missing="$missing $var"
+    if [ -z "$val" ]; then
+        missing="$missing $var"
+        echo "  ✗ $var = (unset)"
+    else
+        echo "  ✓ $var = (set, ${#val} chars)"
+    fi
 done
-if [ -n "$missing" ]; then
-    echo "✗ Missing required environment variables:$missing" >&2
-    echo "  Set them in the platform UI → Settings → Environment Variables." >&2
-    exit 1
-fi
-echo "✓ required env vars present"
+echo "  · DJANGO_DEBUG = ${DJANGO_DEBUG:-(unset, defaults to False)}"
+echo "  · DJANGO_ALLOWED_HOSTS = ${DJANGO_ALLOWED_HOSTS:-(unset)}"
+echo "  · DB_HOST = ${DB_HOST:-(unset)} :${DB_PORT:-5432}"
+echo "  · DB_SSLMODE = ${DB_SSLMODE:-(unset, defaults to prefer)}"
+[ -n "$missing" ] && die "missing required env vars:$missing"
 
-# Render nginx config with the runtime $PORT (Azure Container Apps may inject one).
+step "rendering nginx config"
 envsubst '${PORT}' \
     < /etc/nginx/templates/app.conf.template \
-    > /etc/nginx/conf.d/app.conf
+    > /etc/nginx/conf.d/app.conf \
+    || die "envsubst failed"
+nginx -t 2>&1 || die "nginx config invalid"
 
-cd /app/backend
+cd /app/backend || die "cannot cd to /app/backend"
 
-echo "▶ running migrations…"
-python manage.py migrate --noinput
+step "importing Django settings"
+python -c "import config.settings as s; print(f'  settings imported. DEBUG={s.DEBUG}, ALLOWED_HOSTS={s.ALLOWED_HOSTS}')" \
+    || die "settings import failed (see traceback above)"
 
-echo "▶ collecting static…"
-python manage.py collectstatic --noinput --clear >/dev/null
+step "running migrations"
+python manage.py migrate --noinput --verbosity 2 \
+    || die "migrations failed (DB unreachable, wrong creds, or schema mismatch — see traceback above)"
 
-echo "▶ starting supervisord (nginx + gunicorn)…"
+step "collecting static"
+python manage.py collectstatic --noinput --clear --verbosity 1 \
+    || die "collectstatic failed"
+
+step "starting supervisord (nginx :$PORT + gunicorn :8000)"
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/app.conf
