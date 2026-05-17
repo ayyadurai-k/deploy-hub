@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   useMe,
@@ -131,6 +131,21 @@ function ReposSection() {
   const repos = useRepositories({ offset: page * REPOS_PAGE_SIZE, limit: REPOS_PAGE_SIZE });
   const sync = useSyncRepositories();
   const { data: user } = useMe();
+  const autoSyncedRef = useRef(false);
+
+  // Auto-sync once per dashboard mount when the user has GitHub linked.
+  // Existing repos remain visible during the refetch (React Query keeps
+  // previous data); new ones appear when sync completes and invalidates
+  // the ['repositories'] cache. The Sync button still works for manual
+  // re-runs in the same session.
+  useEffect(() => {
+    if (!user?.has_github) return;
+    if (autoSyncedRef.current) return;
+    if (sync.isPending) return;
+    autoSyncedRef.current = true;
+    sync.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.has_github]);
 
   // 409 means the signed-in user authenticated via Google only. Repos come
   // from GitHub, so the section is informational — log out and sign back in
@@ -187,7 +202,11 @@ function ReposSection() {
         </Banner>
       ) : repos.data && repos.data.results.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-7 text-center text-sm text-slate-500">
-          No repositories yet — click <strong>Sync</strong> above.
+          {sync.isPending ? (
+            <>Fetching your repositories from GitHub…</>
+          ) : (
+            <>No repositories yet — click <strong>Sync</strong> above.</>
+          )}
         </div>
       ) : (
         <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white">
