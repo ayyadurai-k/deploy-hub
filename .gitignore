@@ -65,3 +65,8 @@ OAUTH_STATE_CODE_WALKTHROUGH.md
 
 # --- Cloud / deploy artifacts (server creds, configs, keys) ---
 cloud/
+
+# --- Internal working notes ---
+PROMPT.txt
+CLAUDE.md
+CHECKLIST.md
