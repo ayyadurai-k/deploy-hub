@@ -1,0 +1,166 @@
+name: Deploy to Lightsail (Live)
+
+# CD only — no CI / no tests in this workflow.
+# Fires when commits land on the Live branch. Frontend is built on the runner
+# (the prod Lightsail nano has 419 MiB RAM and cannot afford `npm install`).
+# Backend source + built frontend are rsynced to the host; the host re-runs
+# pip install / migrate / collectstatic and restarts the gunicorn unit.
+
+on:
+  push:
+    branches: [live]
+  workflow_dispatch: {}  # allow manual re-deploys from the Actions tab
+
+concurrency:
+  group: deploy-live
+  cancel-in-progress: false  # finish in-flight deploys before starting a new one
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      LIGHTSAIL_HOST: 3.7.143.78
+      SSH_USER: ec2-user
+      APP_DIR: /home/ec2-user/deploy-hub
+      PROD_HOST: deploy-hub.ayyadurai.online
+      VITE_API_BASE_URL: https://deploy-hub.ayyadurai.online/api/v1
+
+    steps:
+      # ───────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ───────────────────────────────────────────────────────────
+      - name: Validate required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.LIGHTSAIL_SSH_KEY }}" ] && missing="$missing LIGHTSAIL_SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required secrets:$missing"
+            echo ""
+            echo "Go to: Settings → Secrets and variables → Actions → New repository secret"
+            echo "  LIGHTSAIL_SSH_KEY  → paste the full contents of cloud/deploy-hub.pem"
+            echo "                       (including the -----BEGIN/END----- lines)"
+            exit 1
+          fi
+          echo "All required secrets present."
+
+      # ───────────────────────────────────────────────────────────
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend with prod API base
+        working-directory: frontend
+        run: |
+          echo "Installing frontend deps…"
+          npm ci --no-audit --no-fund
+          echo "Building (VITE_API_BASE_URL=$VITE_API_BASE_URL)…"
+          npm run build
+          echo ""
+          echo "Built artifacts:"
+          ls -lh dist/
+          ls -lh dist/assets/
+
+      # ───────────────────────────────────────────────────────────
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
+      - name: Trust the host key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H "$LIGHTSAIL_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
+      # ───────────────────────────────────────────────────────────
+      - name: Rsync backend source to host
+        # NOTE: do NOT --delete here. We want to preserve the host-only files:
+        #   backend/.env (prod secrets), backend/db.sqlite3, backend/venv,
+        #   backend/staticfiles, frontend/dist (handled in the next step),
+        #   frontend/node_modules.
+        # We exclude the same paths from the local side so they're not pushed,
+        # but without --delete the host's copies survive even if the local repo
+        # lacks them.
+        run: |
+          rsync -az \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='venv/' --exclude='**/venv/' \
+            --exclude='node_modules/' --exclude='**/node_modules/' \
+            --exclude='frontend/dist/' \
+            --exclude='backend/db.sqlite3' --exclude='backend/db.sqlite3-journal' \
+            --exclude='backend/.env' --exclude='frontend/.env' --exclude='frontend/.env.local' \
+            --exclude='backend/staticfiles/' \
+            --exclude='cloud/' \
+            --exclude='__pycache__/' --exclude='**/__pycache__/' \
+            --exclude='.pytest_cache/' --exclude='.ruff_cache/' \
+            --exclude='.DS_Store' \
+            --exclude='.vscode/' --exclude='.idea/' \
+            ./ "${SSH_USER}@${LIGHTSAIL_HOST}:${APP_DIR}/"
+
+      - name: Rsync built frontend dist to host
+        run: |
+          rsync -az --delete \
+            frontend/dist/ "${SSH_USER}@${LIGHTSAIL_HOST}:${APP_DIR}/frontend/dist/"
+
+      # ───────────────────────────────────────────────────────────
+      - name: Backend deps + migrate + collectstatic + restart
+        run: |
+          ssh "${SSH_USER}@${LIGHTSAIL_HOST}" bash -s <<'REMOTE'
+          set -euo pipefail
+          cd /home/ec2-user/deploy-hub/backend
+
+          echo "══════════════════════════════════════"
+          echo "  1/4  pip install (only changed wheels download)"
+          echo "══════════════════════════════════════"
+          ./venv/bin/pip install -q --upgrade-strategy only-if-needed -r requirements.txt
+
+          echo ""
+          echo "══════════════════════════════════════"
+          echo "  2/4  migrate"
+          echo "══════════════════════════════════════"
+          ./venv/bin/python manage.py migrate --noinput
+
+          echo ""
+          echo "══════════════════════════════════════"
+          echo "  3/4  collectstatic"
+          echo "══════════════════════════════════════"
+          ./venv/bin/python manage.py collectstatic --noinput | tail -3
+
+          echo ""
+          echo "══════════════════════════════════════"
+          echo "  4/4  restart gunicorn (deploy-hub.service)"
+          echo "══════════════════════════════════════"
+          sudo systemctl restart deploy-hub.service
+          sleep 3
+          sudo systemctl is-active deploy-hub.service
+          REMOTE
+
+      # ───────────────────────────────────────────────────────────
+      - name: Smoke test (in-host + public URL)
+        run: |
+          echo "── local healthz on host (via nginx)"
+          ssh "${SSH_USER}@${LIGHTSAIL_HOST}" \
+            "curl -s -o /dev/null -w 'in-host: HTTP %{http_code}\n' \
+             -H 'Host: ${PROD_HOST}' http://127.0.0.1/api/v1/healthz"
+
+          echo "── public HTTPS healthz"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+                    "https://${PROD_HOST}/api/v1/healthz")
+          echo "external: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Public healthz returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+
+          echo ""
+          echo "✓ Deploy complete."
