@@ -20,6 +20,9 @@ requests==2.34.2
 # OIDC: id_token verification (Google JWKS, JWT decoding)
 authlib==1.6.5
 
+# Production WSGI server
+gunicorn==23.0.0
+
 # Tests
 pytest==8.4.2
 pytest-django==4.11.1
