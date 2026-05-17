@@ -208,18 +208,25 @@ Single source of truth for what's done and what's left. Tick items as they ship.
 
 ---
 
-## 16. AWS Deployment (single EC2, simple)
+## 16. AWS Deployment — Lightsail (`deploy-hub.ayyadurai.online`)
 
 - [x] `Makefile` with `make dev` / `make test` / `make migrate`
-- [ ] EC2 instance launched + security group opened on the demo port
-- [ ] Python 3.12 + Node 20 installed on host
-- [ ] Repo cloned, `make install` + `make migrate` + `make superuser` run
-- [ ] `backend/.env` populated on host (`SECRET_KEY`, fresh `FERNET_KEY`, OAuth creds, `DJANGO_ALLOWED_HOSTS=<ec2-host>`)
-- [ ] `frontend/.env` set with `VITE_API_BASE_URL=http://<ec2-host>/api/v1`
-- [ ] Backend served via `gunicorn config.wsgi:application`
-- [ ] Frontend `npm run build` output served (nginx or Django staticfiles)
-- [ ] Provider redirect URIs updated to the EC2 hostname
-- [ ] End-to-end Google + GitHub login verified on the deployed URL
+- [x] Lightsail instance launched (`ap-south-1`, Amazon Linux 2023, 419 MiB RAM) — firewall opened for **TCP 80 + 443**
+- [x] DNS: `deploy-hub.ayyadurai.online` → `3.7.143.78`
+- [x] Python 3.12.13 installed via `dnf` on host
+- [x] Frontend built **locally** with `VITE_API_BASE_URL=https://deploy-hub.ayyadurai.online/api/v1` and rsynced to `/home/ec2-user/deploy-hub/frontend/dist/` (skipped Node on host to dodge OOM on the 419 MiB instance)
+- [x] Repo rsynced (no .git, no venv, no node_modules) to `/home/ec2-user/deploy-hub/`
+- [x] Backend venv at `/home/ec2-user/deploy-hub/backend/venv`, `pip install -r requirements.txt` clean
+- [x] `backend/.env` written on host (fresh `SECRET_KEY` + `FERNET_KEY` generated **on host**, mode 600, `DJANGO_DEBUG=False`, prod hostname in `ALLOWED_HOSTS`, `REFRESH_COOKIE_SECURE=True`, `CSRF_TRUSTED_ORIGINS` set)
+- [x] `python manage.py migrate` clean
+- [x] `python manage.py collectstatic` → 157 files in `backend/staticfiles/`
+- [x] Backend served via gunicorn (2 workers, 60 s timeout, max-requests 1000 with jitter) under systemd unit `/etc/systemd/system/deploy-hub.service`, enabled
+- [x] Frontend `dist/` served by nginx at `/`; `/static/` served by nginx from Django collected static; `/api/`, `/admin/` proxied to gunicorn at 127.0.0.1:8000
+- [x] Let's Encrypt cert via certbot for `deploy-hub.ayyadurai.online`; nginx config rewritten to include 443 + 80→443 redirect; auto-renew installed
+- [x] Google: production redirect URI `https://deploy-hub.ayyadurai.online/api/v1/oauth/google/callback` added to existing dev client
+- [x] GitHub: new prod OAuth App `Deploy Hub (prod)` created with callback `https://deploy-hub.ayyadurai.online/api/v1/oauth/github/callback` (Client ID `Ov23lirrLEX9ti8RUni6`)
+- [x] `backend/.env` placeholder `GITHUB_OAUTH_CLIENT_ID/SECRET` replaced with prod values
+- [x] End-to-end Google + GitHub login verified on deploy-hub.ayyadurai.online — two `User` rows (Google + GitHub) per `plan.md` §2, GitHub first-sync pulled 120 repos with `sync=success`
 
 ---
 
